@@ -42,3 +42,11 @@ externalPort = 80
 [[ports]]
 localPort = 8099
 externalPort = 8099
+
+[userenv]
+
+[userenv.production]
+APP_ENV = "production"
+AUTH_COOKIE_SECURE = "true"
+CORS_ORIGINS = "https://pharmacy-app-theta-nine.vercel.app,https://admin-dashboard-swart-two-41.vercel.app"
+PUBLIC_APP_URL = "https://pharmacy-app-theta-nine.vercel.app"
