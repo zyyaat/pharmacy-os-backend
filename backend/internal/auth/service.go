@@ -401,6 +401,7 @@ func (s *Service) RegisterCompany(ctx context.Context, companyName, companyEmail
 		FROM permissions p
 		WHERE p.key = ANY($2::text[])
 		ON CONFLICT (company_user_id, permission_id)
+		WHERE revoked_at IS NULL
 		DO UPDATE SET revoked_at = NULL, revocation_reason = NULL
 	`, userID, []string{
 		"companies.view", "companies.update",
