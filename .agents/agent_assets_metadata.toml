@@ -1,0 +1,16 @@
+uploads = []
+generated = []
+
+[[outputs]]
+id = "GF26dlwi7dSBeDYW6h7Os"
+uri = "file://backups/pharmacy-os-development-2026-09-05.sql"
+type = "unspecified"
+title = "Pharmacy OS development database backup"
+description = "Full SQL backup of the development database, including schema and data."
+logical_id = "6dbe1dfa-0b2e-470a-9a6b-88311512a269"
+content_hash = "sha256:91296db433316f3e01598a0446564861408aeca83ec14747f588d8ec9a9919e8"
+size = 143081
+mtime_ms = 1788624996567
+storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:88578e20-29e2-4f8b-a275-a5d9b2f4b331/6dbe1dfa-0b2e-470a-9a6b-88311512a269/53e0b05c-0a9d-4055-bf36-e4f65132ffd6"
+storage_version_token = "1788624997182473"
+content_type = "application/octet-stream"
