@@ -23,7 +23,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "sh -c 'cd backend && GOSUMDB=sum.golang.org go run ./cmd/server > /tmp/admin-backend.log 2>&1 & cd frontend/apps/admin-dashboard && NEXT_PUBLIC_API_URL=/api/v1 npx next dev -p 5000'"
+args = "cd frontend/apps/admin-dashboard && NEXT_PUBLIC_API_URL=/api/v1 npx next dev -p 5000"
 waitForPort = 5000
 
 [[workflows.workflow]]
@@ -35,8 +35,8 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd frontend/apps/marketing && npm run dev -- -p 5000"
-waitForPort = 5000
+args = "cd frontend/apps/marketing && npm run dev -- -p 5002"
+waitForPort = 5002
 
 [[workflows.workflow]]
 name = "Pharmacy App"
@@ -47,12 +47,32 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "sh -c 'cd backend && GOSUMDB=sum.golang.org go run ./cmd/server > /tmp/pharmacy-backend.log 2>&1 & cd frontend/apps/pharmacy-app && NEXT_PUBLIC_API_URL=/api/v1 npm run dev -- -p 5000'"
-waitForPort = 5000
+args = "cd frontend/apps/pharmacy-app && NEXT_PUBLIC_API_URL=/api/v1 npm run dev -- -p 5001"
+waitForPort = 5001
+
+[[workflows.workflow]]
+name = "Backend API"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd backend && GOSUMDB=sum.golang.org go run ./cmd/server"
+waitForPort = 8080
+
+[workflows.workflow.metadata]
+outputType = "console"
 
 [[ports]]
 localPort = 5000
 externalPort = 5000
+
+[[ports]]
+localPort = 5001
+externalPort = 3000
+
+[[ports]]
+localPort = 5002
+externalPort = 3001
 
 [[ports]]
 localPort = 8080

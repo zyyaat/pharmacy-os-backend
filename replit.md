@@ -12,7 +12,8 @@ This repository contains the Pharmacy OS frontend monorepo and backend:
 ## Replit setup
 
 Each frontend has its own independent workflow. The selected Run workflow is
-`Admin Dashboard`, which starts the Go API and the admin frontend together:
+`Admin Dashboard`. The frontend workflows can run together on dedicated ports,
+while `Backend API` provides the shared Go API:
 
 ```bash
 cd backend && GOSUMDB=sum.golang.org go run ./cmd/server
@@ -21,12 +22,16 @@ cd frontend/apps/admin-dashboard && NEXT_PUBLIC_API_URL=/api/v1 npx next dev -p 
 
 The Replit-managed PostgreSQL database is connected automatically through `DATABASE_URL` and the `PG*` environment variables. The active development schema is created by migrations `00000000000001_foundation.sql` through `00000000000006_go_auth.sql`; `00000000000001_init.sql` is an older legacy schema and is not part of the active migration sequence.
 
-The three frontend workflows are alternatives, because they all use preview port
-`5000`; stop the currently running one before starting another:
+The frontend workflows use separate preview ports, so they do not overwrite one
+another:
 
-- `Admin Dashboard` — `frontend/apps/admin-dashboard` plus the Go API.
-- `Pharmacy App` — `frontend/apps/pharmacy-app` plus the Go API.
-- `Marketing Site` — `frontend/apps/marketing` only.
+- `Admin Dashboard` — `frontend/apps/admin-dashboard` on port `5000`.
+- `Pharmacy App` — `frontend/apps/pharmacy-app` on port `5001`.
+- `Marketing Site` — `frontend/apps/marketing` on port `5002`.
+- `Backend API` — the shared Go API on port `8080`.
+
+Choose the desired port from the Preview port selector when viewing a specific
+frontend.
 
 The frontend apps proxy `/api/v1/*` to the backend during Replit development, so browser requests do not use `localhost`.
 
