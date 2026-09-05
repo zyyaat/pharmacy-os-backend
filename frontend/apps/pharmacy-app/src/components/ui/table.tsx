@@ -23,5 +23,5 @@ export function TableHead({ children, ...props }: React.HTMLAttributes<HTMLTable
 }
 
 export function TableCell({ children, ...props }: React.HTMLAttributes<HTMLTableCellElement>) {
-  return <td {...props>{children}</td>
+  return <td {...props}>{children}</td>
 }
