@@ -227,6 +227,8 @@ COMMENT ON TABLE company_user_permissions IS '⭐ SOURCE OF TRUTH ⭐ - Company 
 -- ============================================
 ALTER TABLE accounts 
 ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES companies(id) ON DELETE SET NULL;
+ALTER TABLE accounts
+ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMPTZ;
 
 -- Update existing accounts to link to a default company (migration helper)
 -- This allows existing data to work during transition
