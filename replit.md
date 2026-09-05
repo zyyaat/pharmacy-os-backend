@@ -1,8 +1,10 @@
 # Pharmacy OS monorepo
 
-This repository contains the Pharmacy OS frontend and backend:
+This repository contains the Pharmacy OS frontend monorepo and backend:
 
-- `frontend/` — the existing Next.js 16 / React 19 app, kept unchanged for its Vercel deployment.
+- `frontend/apps/pharmacy-app/` — the main Next.js pharmacy application.
+- `frontend/apps/admin-dashboard/` — the Next.js admin dashboard.
+- `frontend/apps/marketing/` — the Next.js public marketing site.
 - `backend/` — the Go 1.25 Gin API and its migrations.
 
 ## Backend setup
@@ -42,4 +44,10 @@ Dependencies are installed with `go mod download`; use `go build ./cmd/server` t
 
 ## Frontend
 
-The frontend remains independently deployable from `frontend/` on Vercel. Its existing `package.json`, environment template, and Next.js configuration are intentionally unchanged.
+The three frontend apps remain independently deployable on Vercel. Use these Vercel Root Directories:
+
+- `frontend/apps/pharmacy-app`
+- `frontend/apps/admin-dashboard`
+- `frontend/apps/marketing`
+
+The frontend repository was refreshed from its latest upstream commit. Its app-specific settings were not modified here.

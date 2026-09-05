@@ -1,19 +1,16 @@
 # Pharmacy OS
 
-Pharmacy OS is a pharmacy-management system split into two independently deployable applications:
+Pharmacy OS is a pharmacy-management system split into a backend and three independently deployable frontend applications:
 
 ## Frontend
 
-The `frontend/` directory contains the existing Next.js 16 / React 19 dashboard. It covers:
+The `frontend/` directory contains the complete Next.js 16 / React 19 frontend monorepo:
 
-- Dashboard metrics
-- Inventory and medication management
-- Employee management
-- Attendance tracking
-- Branch management
-- Reports and settings
+- `frontend/apps/pharmacy-app/` — the main pharmacy dashboard with inventory, employees, attendance, branches, reports, and settings.
+- `frontend/apps/admin-dashboard/` — the admin/super-admin panel for companies, pharmacies, users, permissions, and analytics.
+- `frontend/apps/marketing/` — the public landing page, pricing, privacy policy, and terms pages.
 
-The frontend's existing Vercel-oriented configuration is kept unchanged. Its Supabase and API environment variables are documented in `frontend/README.md`.
+Each app remains independently deployable on Vercel using its own directory as the Vercel Root Directory. The imported frontend repository was refreshed from the latest upstream commit without installing dependencies or changing its app settings. See `frontend/README.md` for the deployment details.
 
 ## Backend
 

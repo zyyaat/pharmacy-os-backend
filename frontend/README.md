@@ -1,4 +1,4 @@
-# Pharmacy OS Frontend
+# Pharmacy OS - Frontend Monorepo
 
 ![Next.js](https://img.shields.io/badge/Next.js-16-black?logo=next.js)
 ![React](https://img.shields.io/badge/React-19-blue?logo=react)
@@ -6,27 +6,87 @@
 ![Tailwind CSS](https://img.shields.io/badge/Tailwind_CSS-v4-06B6D4?logo=tailwindcss)
 ![Supabase](https://img.shields.io/badge/Supabase-2.39-3ECF8E?logo=supabase)
 
-Modern pharmacy management system frontend built with Next.js 16, React 19, and Tailwind CSS v4.
+Complete pharmacy management system frontend with 3 applications:
 
-## Features
+1. **Pharmacy App** - Main pharmacy management dashboard
+2. **Admin Dashboard** - Admin/Super-admin control panel  
+3. **Marketing** - Public landing page & marketing site
 
-- **Dashboard** - Overview with key metrics and analytics
-- **Inventory Management** - Track medications, stock levels, and batches
-- **Employee Management** - Manage pharmacy staff and roles
-- **Attendance Tracking** - Clock in/out system for employees
-- **Branch Management** - Multi-location support
-- **Reports** - Generate and view various reports
-- **Settings** - Application configuration
+---
+
+## Applications
+
+### 1. 🏥 Pharmacy App (`apps/pharmacy-app`)
+
+Main application for pharmacy staff and managers.
+
+**Features:**
+- Dashboard with key metrics & analytics
+- Inventory Management (medications, stock, batches)
+- Employee Management (staff, roles)
+- Attendance Tracking (clock in/out)
+- Branch Management (multi-location)
+- Reports & Analytics
+- Settings
+
+**Run:**
+```bash
+cd apps/pharmacy-app
+npm install
+npm run dev
+```
+
+---
+
+### 2. 👑 Admin Dashboard (`apps/admin-dashboard`)
+
+Super-admin panel for managing multiple pharmacies.
+
+**Features:**
+- Company/Account Management
+- Pharmacy Overview & Monitoring
+- User Management
+- Permissions & Access Control
+- Analytics & Reports
+- System Settings
+
+**Run:**
+```bash
+cd apps/admin-dashboard
+npm install
+npm run dev
+```
+
+---
+
+### 3. 📢 Marketing Site (`apps/marketing`)
+
+Public-facing website for Pharmacy OS.
+
+**Pages:**
+- Landing Page (Home)
+- Pricing Plans
+- Privacy Policy
+- Terms of Use
+
+**Run:**
+```bash
+cd apps/marketing
+npm install
+npm run dev
+```
+
+---
 
 ## Tech Stack
 
 | Technology | Version | Purpose |
 |------------|---------|---------|
-| Next.js | 16.x | React Framework |
+| Next.js | 16.x | React Framework (App Router) |
 | React | 19.x | UI Library |
 | TypeScript | 5.6.x | Type Safety |
-| Tailwind CSS | 4.x | Styling |
-| Supabase JS | 2.39.x | Auth & Database |
+| Tailwind CSS | 4.x | Utility-first Styling |
+| Supabase JS | 2.39.x | Authentication & Database |
 
 ## Getting Started
 
@@ -44,9 +104,12 @@ git clone https://github.com/zyyaat/pharmacy-os-frontend.git
 cd pharmacy-os-frontend
 ```
 
-2. Install dependencies:
+2. Install dependencies for all apps:
 ```bash
-npm install
+# Install for each app
+cd apps/pharmacy-app && npm install
+cd ../admin-dashboard && npm install
+cd ../marketing && npm install
 ```
 
 3. Copy environment variables:
@@ -60,53 +123,56 @@ NEXT_PUBLIC_SUPABASE_URL=your-supabase-url
 NEXT_PUBLIC_SUPABASE_ANON_KEY=your-anon-key
 ```
 
-5. Run development server:
+5. Run any app:
 ```bash
+cd apps/pharmacy-app
 npm run dev
 ```
-
-6. Open [http://localhost:3000](http://localhost:3000)
 
 ## Project Structure
 
 ```
-src/
-├── app/                    # Next.js App Router pages
-│   ├── (auth)/            # Authentication pages (login)
-│   ├── (dashboard)/       # Dashboard pages
-│   │   ├── inventory/     # Inventory management
-│   │   ├── employees/     # Employee management
-│   │   ├── attendance/    # Attendance tracking
-│   │   ├── branches/      # Branch management
-│   │   ├── reports/       # Reports
-│   │   └── settings/      # Settings
-│   ├── layout.tsx         # Root layout
-│   └── globals.css        # Global styles
-├── components/            # Reusable components
-│   ├── layout/           # Layout components (header, sidebar)
-│   └── ui/               # UI primitives (button, card, input, etc.)
-├── hooks/                 # Custom React hooks
-│   ├── useAuth.ts        # Authentication hook
-│   ├── useEmployees.ts   # Employees data hook
-│   ├── useInventory.ts   # Inventory data hook
-│   ├── useAttendance.ts  # Attendance data hook
-│   └── usePharmacy.ts    # Pharmacy data hook
-├── lib/                   # Utilities and configurations
-│   ├── supabase.ts       # Supabase client
-│   ├── api.ts            # API utilities
-│   ├── auth.ts           # Auth helpers
-│   ├── validations.ts    # Form validations
-│   └── utils.ts          # General utilities
-└── types/                 # TypeScript type definitions
-    ├── index.ts          # Export all types
-    ├── employee.ts       # Employee types
-    ├── medication.ts     # Medication types
-    ├── pharmacy.ts       # Pharmacy types
-    ├── branch.ts         # Branch types
-    └── attendance.ts     # Attendance types
+pharmacy-os-frontend/
+├── apps/
+│   ├── pharmacy-app/          # Main pharmacy app
+│   │   ├── src/
+│   │   │   ├── app/          # Pages (App Router)
+│   │   │   │   ├── (auth)/   # Login page
+│   │   │   │   └── (dashboard)/ # Dashboard pages
+│   │   │   ├── components/   # React components
+│   │   │   ├── hooks/        # Custom hooks
+│   │   │   ├── lib/          # Utilities
+│   │   │   └── types/        # TypeScript types
+│   │   └── package.json
+│   │
+│   ├── admin-dashboard/       # Admin panel
+│   │   ├── src/
+│   │   │   ├── app/
+│   │   │   │   ├── (auth)/   # Admin login
+│   │   │   │   └── (dashboard)/ # Admin pages
+│   │   │   ├── components/
+│   │   │   ├── hooks/
+│   │   │   ├── lib/
+│   │   │   └── types/
+│   │   └── package.json
+│   │
+│   └── marketing/              # Public site
+│       ├── src/
+│       │   └── app/
+│       │       ├── page.tsx           # Landing page
+│       │       ├── pricing/page.tsx   # Pricing
+│       │       ├── privacy-policy/    # Legal
+│       │       └── terms-of-use/      # Legal
+│       └── package.json
+│
+├── .env.example
+├── .gitignore
+└── README.md
 ```
 
 ## Available Scripts
+
+Each app supports these scripts:
 
 | Command | Description |
 |---------|-------------|
@@ -121,19 +187,32 @@ src/
 |----------|-------------|----------|
 | `NEXT_PUBLIC_SUPABASE_URL` | Your Supabase project URL | ✅ Yes |
 | `NEXT_PUBLIC_SUPABASE_ANON_KEY` | Your Supabase anonymous key | ✅ Yes |
-| `NEXT_PUBLIC_API_URL` | Custom backend API URL (optional) | ❌ No |
-| `NEXT_PUBLIC_APP_NAME` | Application name | ❌ No |
+| `NEXT_PUBLIC_API_URL` | Custom backend API URL | ❌ No |
 
 ## Deployment
 
 ### Vercel (Recommended)
 
-1. Push your code to GitHub
-2. Import project on [vercel.com](https://vercel.com)
+1. Push code to GitHub
+2. Import each `apps/*` folder as separate project on Vercel
 3. Add environment variables
 4. Deploy!
 
+**Root Directory for each project:**
+- Pharmacy App: `./apps/pharmacy-app`
+- Admin Dashboard: `./apps/admin-dashboard`
+- Marketing: `./apps/marketing`
+
+### Replit
+
+1. Fork this repository to Replit
+2. Configure which app to run in config
+3. Set environment variables in Secrets
+4. Click "Run"
+
 ### Docker
+
+Each app can be containerized:
 
 ```dockerfile
 FROM node:20-alpine AS builder
@@ -153,15 +232,9 @@ EXPOSE 3000
 CMD ["node", "server.js"]
 ```
 
-### Replit
-
-1. Fork this repository to Replit
-2. Configure environment variables in Secrets
-3. Click "Run"
-
 ## Related Repositories
 
-- [Backend (Go + Gin)](https://github.com/zyyaat/pharmacy-os-backend) - Go backend API
+- [Backend (Go + Gin)](https://github.com/zyyaat/pharmacy-os-backend) - Go REST API backend
 
 ## Contributing
 
