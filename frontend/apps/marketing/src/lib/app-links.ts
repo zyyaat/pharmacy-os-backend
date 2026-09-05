@@ -1,11 +1,23 @@
-export function getPharmacyAppUrl(): string {
+export function getConfiguredPharmacyAppUrl(): string | null {
   const configured = process.env.NEXT_PUBLIC_PHARMACY_APP_URL
-  if (configured) return configured.replace(/\/$/, '')
+  return configured ? configured.replace(/\/$/, '') : null
+}
+
+export function getPharmacyAppUrl(): string {
+  const configured = getConfiguredPharmacyAppUrl()
+  if (configured) return configured
 
   if (typeof window !== 'undefined') {
     const current = new URL(window.location.href)
-    if (current.port === '5002') {
-      current.port = '5001'
+    const pharmacyPort = {
+      '5002': '5001',
+      '3001': '3000',
+    }[current.port]
+    if (pharmacyPort) {
+      current.port = pharmacyPort
+      current.pathname = '/'
+      current.search = ''
+      current.hash = ''
       return current.origin
     }
   }

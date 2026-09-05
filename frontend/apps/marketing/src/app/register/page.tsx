@@ -1,7 +1,7 @@
 'use client'
 
-import { FormEvent, useState } from 'react'
-import { getPharmacyAppUrl } from '@/lib/app-links'
+import { FormEvent, MouseEvent, useState } from 'react'
+import { getConfiguredPharmacyAppUrl, getPharmacyAppUrl } from '@/lib/app-links'
 
 type RegisterForm = {
   companyName: string
@@ -23,6 +23,8 @@ const initialForm: RegisterForm = {
   confirmPassword: '',
 }
 
+const configuredPharmacyAppUrl = getConfiguredPharmacyAppUrl()
+
 export default function RegisterPage() {
   const [form, setForm] = useState(initialForm)
   const [error, setError] = useState('')
@@ -30,6 +32,13 @@ export default function RegisterPage() {
 
   function update(field: keyof RegisterForm, value: string) {
     setForm((current) => ({ ...current, [field]: value }))
+  }
+
+  function handlePharmacyLoginClick(event: MouseEvent<HTMLAnchorElement>) {
+    if (!configuredPharmacyAppUrl) {
+      event.preventDefault()
+      window.location.assign(`${getPharmacyAppUrl()}/login`)
+    }
   }
 
   async function handleSubmit(event: FormEvent<HTMLFormElement>) {
@@ -99,7 +108,15 @@ export default function RegisterPage() {
             <span aria-hidden="true">←</span>
           </button>
         </form>
-        <p className="auth-footer">لديك حساب بالفعل؟ <a href={`${getPharmacyAppUrl()}/login`}>الدخول إلى التطبيق</a></p>
+        <p className="auth-footer">
+          لديك حساب بالفعل؟{' '}
+          <a
+            href={configuredPharmacyAppUrl ? `${configuredPharmacyAppUrl}/login` : '/pharmacy/login'}
+            onClick={handlePharmacyLoginClick}
+          >
+            الدخول إلى التطبيق
+          </a>
+        </p>
         <p className="auth-note">بعد الإنشاء سيتم تسجيل دخولك تلقائيًا ونقلك إلى تطبيق الصيدلية.</p>
       </section>
     </main>
