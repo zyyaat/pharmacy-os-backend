@@ -1,11 +1,12 @@
 'use client'
 
 import Link from 'next/link'
-import { usePathname } from 'next/navigation'
+import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
 import { BarChart3, CalendarCheck, ChevronLeft, ChevronRight, LayoutDashboard, LogOut, Package, Settings, Store, Users, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui'
+import { useAuth } from '@/hooks/useAuth'
 
 const items = [
   { title: 'لوحة التحكم', href: '/', icon: LayoutDashboard },
@@ -18,7 +19,20 @@ const items = [
 
 export default function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boolean; onMobileClose: () => void }) {
   const pathname = usePathname()
+  const router = useRouter()
+  const { logout } = useAuth()
   const [collapsed, setCollapsed] = useState(false)
+  const [loggingOut, setLoggingOut] = useState(false)
+
+  async function handleLogout() {
+    if (loggingOut) return
+    setLoggingOut(true)
+    try {
+      await logout()
+    } finally {
+      router.replace('/login')
+    }
+  }
 
   const content = (
     <div className={cn('flex h-full flex-col border-l border-border bg-card transition-all duration-300', collapsed ? 'w-[70px]' : 'w-[260px]')}>
@@ -89,7 +103,19 @@ export default function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boo
               <p className="truncate text-xs text-muted-foreground">مدير الصيدلية</p>
             </div>
           )}
-          {!collapsed && <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground hover:text-destructive"><LogOut className="h-4 w-4" /></Button>}
+          {!collapsed && (
+            <Button
+              variant="ghost"
+              size="icon"
+              className="shrink-0 text-muted-foreground hover:text-destructive"
+              onClick={handleLogout}
+              disabled={loggingOut}
+              aria-label="تسجيل الخروج"
+              title="تسجيل الخروج"
+            >
+              <LogOut className="h-4 w-4" />
+            </Button>
+          )}
         </div>
       </div>
     </div>
