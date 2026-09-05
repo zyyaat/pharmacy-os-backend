@@ -57,3 +57,8 @@ The three frontend apps remain independently deployable on Vercel. Use these Ver
 - `frontend/apps/marketing`
 
 The frontend repository was refreshed from its latest upstream commit. Its app-specific settings were not modified here.
+
+After publishing the backend, set `NEXT_PUBLIC_API_URL` in the Vercel environment
+for `pharmacy-app` and `admin-dashboard` to the published backend URL followed by
+`/api/v1` (for example, `https://your-backend.replit.app/api/v1`). Keep the backend
+`CORS_ORIGINS` values aligned with the exact Vercel origins, without trailing slashes.
