@@ -2,122 +2,94 @@
 
 import Link from 'next/link'
 import { usePathname } from 'next/navigation'
+import { useState } from 'react'
+import { BarChart3, CalendarCheck, ChevronLeft, ChevronRight, LayoutDashboard, LogOut, Package, Settings, Store, Users, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
-import { Icon, type IconName } from '@/components/ui'
+import { Button } from '@/components/ui'
 
-type NavigationItem = {
-  label: string
-  href: string
-  icon: IconName
-  badge?: string
-}
-
-const navigation: NavigationItem[] = [
-  { label: 'لوحة التحكم', href: '/', icon: 'dashboard' },
-  { label: 'المخزون والأدوية', href: '/inventory', icon: 'package', badge: '27' },
-  { label: 'الموظفون', href: '/employees', icon: 'users' },
-  { label: 'الحضور والانصراف', href: '/attendance', icon: 'calendar' },
-  { label: 'الفروع', href: '/branches', icon: 'store' },
-  { label: 'التقارير', href: '/reports', icon: 'chart' },
+const items = [
+  { title: 'لوحة التحكم', href: '/', icon: LayoutDashboard },
+  { title: 'المخزون والأدوية', href: '/inventory', icon: Package, badge: '27' },
+  { title: 'الموظفون', href: '/employees', icon: Users },
+  { title: 'الحضور والانصراف', href: '/attendance', icon: CalendarCheck },
+  { title: 'الفروع', href: '/branches', icon: Store },
+  { title: 'التقارير', href: '/reports', icon: BarChart3 },
 ]
 
-export default function Sidebar({
-  open,
-  onClose,
-}: {
-  open: boolean
-  onClose: () => void
-}) {
+export default function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boolean; onMobileClose: () => void }) {
   const pathname = usePathname()
+  const [collapsed, setCollapsed] = useState(false)
 
   const content = (
-    <div className="flex h-full flex-col border-l border-border bg-card">
-      <div className="flex h-20 items-center gap-3 border-b border-border px-5">
-        <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-primary text-lg font-black text-primary-foreground shadow-lg shadow-primary/20">
-          P
-        </div>
-        <div className="min-w-0">
-          <p className="truncate text-base font-bold tracking-tight">Pharmacy OS</p>
-          <p className="truncate text-xs text-muted-foreground">إدارة الصيدلية</p>
-        </div>
-        <button
-          aria-label="إغلاق القائمة"
-          className="mr-auto rounded-lg p-2 text-muted-foreground hover:bg-accent lg:hidden"
-          onClick={onClose}
-        >
-          <Icon name="x" size={18} />
+    <div className={cn('flex h-full flex-col border-l border-border bg-card transition-all duration-300', collapsed ? 'w-[70px]' : 'w-[260px]')}>
+      <div className="flex h-16 items-center justify-between border-b border-border px-4">
+        {!collapsed && (
+          <Link href="/" className="flex items-center gap-2">
+            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary font-bold text-primary-foreground">P</div>
+            <span className="gradient-text text-lg font-bold">Pharmacy OS</span>
+          </Link>
+        )}
+        {collapsed && <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-lg bg-primary font-bold text-primary-foreground">P</div>}
+        <button className="rounded-lg p-1.5 hover:bg-accent lg:hidden" onClick={onMobileClose} aria-label="إغلاق القائمة">
+          <X className="h-5 w-5" />
+        </button>
+        <button className="hidden rounded-lg p-1.5 hover:bg-accent lg:flex" onClick={() => setCollapsed(!collapsed)} aria-label="طي القائمة">
+          {collapsed ? <ChevronLeft className="h-4 w-4" /> : <ChevronRight className="h-4 w-4" />}
         </button>
       </div>
 
-      <div className="border-b border-border px-4 py-4">
-        <div className="rounded-xl bg-primary/8 p-3">
-          <p className="text-[11px] font-medium text-muted-foreground">الصيدلية الحالية</p>
-          <div className="mt-1 flex items-center justify-between gap-2">
-            <p className="truncate text-sm font-semibold">صيدليات الأمل</p>
-            <span className="h-2 w-2 rounded-full bg-emerald-500" />
+      {!collapsed && (
+        <div className="border-b border-border p-3">
+          <div className="rounded-lg bg-primary/10 p-3">
+            <p className="text-xs text-muted-foreground">الصيدلية الحالية</p>
+            <p className="mt-1 truncate text-sm font-semibold">صيدليات الأمل</p>
+            <p className="mt-1 truncate text-xs text-muted-foreground">الفرع الرئيسي · القاهرة</p>
           </div>
-          <p className="mt-1 truncate text-xs text-muted-foreground">الفرع الرئيسي · القاهرة</p>
         </div>
-      </div>
+      )}
 
-      <nav className="flex-1 space-y-1 overflow-y-auto p-4">
-        <p className="mb-3 px-3 text-[11px] font-bold uppercase tracking-wider text-muted-foreground">
-          القائمة الرئيسية
-        </p>
-        {navigation.map((item) => {
-          const active = item.href === '/' ? pathname === '/' : pathname.startsWith(item.href)
+      <nav className="flex-1 space-y-1 overflow-y-auto p-3">
+        <p className={cn('mb-2 text-xs font-medium text-muted-foreground', collapsed ? 'text-center' : 'px-3')}>{collapsed ? '•••' : 'القائمة الرئيسية'}</p>
+        {items.map((item) => {
+          const active = pathname === item.href || (item.href !== '/' && pathname.startsWith(item.href))
+          const ItemIcon = item.icon
           return (
             <Link
               key={item.href}
               href={item.href}
-              onClick={onClose}
-              className={cn(
-                'group relative flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-all',
-                active
-                  ? 'bg-primary/10 text-primary'
-                  : 'text-muted-foreground hover:bg-accent hover:text-foreground',
-              )}
+              onClick={onMobileClose}
+              className={cn('group relative flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all duration-200', active ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}
             >
-              {active && <span className="absolute right-0 h-7 w-1 rounded-l-full bg-primary" />}
-              <Icon name={item.icon} size={19} className={cn(active && 'text-primary')} />
-              <span className="flex-1">{item.label}</span>
-              {item.badge && (
-                <span className={cn('rounded-full px-2 py-0.5 text-[10px]', active ? 'bg-primary/15 text-primary' : 'bg-muted text-muted-foreground')}>
-                  {item.badge}
-                </span>
+              {active && <div className="absolute right-0 top-1/2 h-8 w-1 -translate-y-1/2 rounded-l-full bg-primary" />}
+              <ItemIcon className={cn('h-5 w-5 shrink-0', active && 'text-primary')} />
+              {!collapsed && (
+                <>
+                  <span className="flex-1">{item.title}</span>
+                  {item.badge && <span className={cn('rounded-full px-2 py-0.5 text-xs', active ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground')}>{item.badge}</span>}
+                </>
               )}
+              {collapsed && <div className="absolute right-full z-50 mr-2 hidden whitespace-nowrap rounded-lg border border-border bg-popover px-3 py-2 text-sm shadow-lg group-hover:block">{item.title}</div>}
             </Link>
           )
         })}
-
-        <div className="my-5 border-t border-border" />
-        <Link
-          href="/settings"
-          onClick={onClose}
-          className={cn(
-            'flex items-center gap-3 rounded-xl px-3 py-3 text-sm font-medium transition-all',
-            pathname.startsWith('/settings')
-              ? 'bg-primary/10 text-primary'
-              : 'text-muted-foreground hover:bg-accent hover:text-foreground',
-          )}
-        >
-          <Icon name="settings" size={19} />
-          <span>الإعدادات</span>
-        </Link>
+        <div className="mt-4 border-t border-border pt-4">
+          <Link href="/settings" onClick={onMobileClose} className={cn('flex items-center gap-3 rounded-lg px-3 py-2.5 text-sm font-medium transition-all', pathname.startsWith('/settings') ? 'bg-primary/10 text-primary' : 'text-muted-foreground hover:bg-accent hover:text-foreground')}>
+            <Settings className="h-5 w-5 shrink-0" />
+            {!collapsed && <span>الإعدادات</span>}
+          </Link>
+        </div>
       </nav>
 
       <div className="border-t border-border p-4">
-        <div className="flex items-center gap-3 rounded-xl bg-muted/50 p-3">
-          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/15 text-sm font-bold text-primary">
-            م
-          </div>
-          <div className="min-w-0 flex-1">
-            <p className="truncate text-sm font-semibold">محمد أحمد</p>
-            <p className="truncate text-xs text-muted-foreground">مدير الصيدلية</p>
-          </div>
-          <button aria-label="تسجيل الخروج" className="text-muted-foreground transition-colors hover:text-destructive">
-            <Icon name="logout" size={17} />
-          </button>
+        <div className={cn('flex items-center gap-3', collapsed && 'justify-center')}>
+          <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">م</div>
+          {!collapsed && (
+            <div className="min-w-0 flex-1">
+              <p className="truncate text-sm font-medium">محمد أحمد</p>
+              <p className="truncate text-xs text-muted-foreground">مدير الصيدلية</p>
+            </div>
+          )}
+          {!collapsed && <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground hover:text-destructive"><LogOut className="h-4 w-4" /></Button>}
         </div>
       </div>
     </div>
@@ -125,10 +97,8 @@ export default function Sidebar({
 
   return (
     <>
-      {open && <button aria-label="إغلاق القائمة" className="fixed inset-0 z-40 bg-black/40 lg:hidden" onClick={onClose} />}
-      <aside className={cn('fixed inset-y-0 right-0 z-50 w-[280px] transition-transform duration-300 lg:static lg:block lg:w-[280px] lg:shrink-0', open ? 'translate-x-0' : 'translate-x-full lg:translate-x-0')}>
-        {content}
-      </aside>
+      {mobileOpen && <div className="fixed inset-0 z-40 bg-black/50 lg:hidden" onClick={onMobileClose} />}
+      <aside className={cn('fixed bottom-0 right-0 top-0 z-50 transition-transform duration-300 lg:sticky lg:block lg:h-screen', mobileOpen ? 'translate-x-0' : 'translate-x-full lg:translate-x-0')}>{content}</aside>
     </>
   )
 }

@@ -1,13 +1,28 @@
 'use client'
 
 import Link from 'next/link'
-import { Badge, Icon } from '@/components/ui'
+import {
+  AlertTriangle,
+  ArrowDownRight,
+  ArrowUpRight,
+  BarChart3,
+  CalendarCheck,
+  ChevronLeft,
+  Clock,
+  MoreHorizontal,
+  Package,
+  Pill,
+  Plus,
+  TrendingUp,
+  Users,
+} from 'lucide-react'
+import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui'
 
 const stats = [
-  { label: 'إجمالي المنتجات', value: '1,248', change: '+8.4%', note: 'منذ الشهر الماضي', icon: 'package' as const, tone: 'primary' },
-  { label: 'منتجات منخفضة المخزون', value: '27', change: '-5.2%', note: 'مقارنة بالأسبوع الماضي', icon: 'alert' as const, tone: 'warning' },
-  { label: 'مبيعات اليوم', value: '18,450 ج.م', change: '+12.8%', note: 'عن نفس اليوم السابق', icon: 'chart' as const, tone: 'success' },
-  { label: 'الحضور اليوم', value: '18 / 24', change: '75%', note: 'من إجمالي الموظفين', icon: 'users' as const, tone: 'info' },
+  { label: 'إجمالي المنتجات', value: '1,248', change: '+8.4%', note: 'منذ الشهر الماضي', icon: Package, tone: 'primary' },
+  { label: 'منتجات منخفضة المخزون', value: '27', change: '-5.2%', note: 'مقارنة بالأسبوع الماضي', icon: AlertTriangle, tone: 'warning' },
+  { label: 'مبيعات اليوم', value: '18,450 ج.م', change: '+12.8%', note: 'عن نفس اليوم السابق', icon: TrendingUp, tone: 'success' },
+  { label: 'الحضور اليوم', value: '18 / 24', change: '75%', note: 'من إجمالي الموظفين', icon: Users, tone: 'info' },
 ]
 
 const sales = [
@@ -31,38 +46,38 @@ const toneClasses = {
 
 export default function DashboardPage() {
   return (
-    <div className="mx-auto max-w-[1500px] space-y-7 animate-fade-in">
+    <div className="mx-auto max-w-[1500px] space-y-6 animate-fade-in">
       <div className="flex flex-col justify-between gap-4 sm:flex-row sm:items-center">
         <div>
           <div className="mb-2 flex items-center gap-2 text-xs text-muted-foreground">
             <span>الرئيسية</span>
-            <Icon name="chevronLeft" size={13} />
+            <ChevronLeft className="h-3 w-3" />
             <span className="text-primary">لوحة التحكم</span>
           </div>
-          <h1 className="text-2xl font-bold tracking-tight lg:text-3xl">لوحة التحكم</h1>
+          <h1 className="text-2xl font-bold">لوحة التحكم</h1>
           <p className="mt-2 text-sm text-muted-foreground">نظرة سريعة على أداء صيدليات الأمل اليوم</p>
         </div>
         <div className="flex items-center gap-3">
-          <button className="hidden rounded-xl border border-border bg-card px-4 py-2.5 text-sm font-medium transition-colors hover:bg-accent sm:block">
+          <Button variant="outline" className="hidden sm:flex">
             آخر 7 أيام <span className="mr-2 text-muted-foreground">⌄</span>
-          </button>
-          <Link href="/inventory" className="flex items-center gap-2 rounded-xl bg-primary px-4 py-2.5 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 hover:bg-primary/90">
-            <Icon name="plus" size={17} />
-            إضافة منتج
-          </Link>
+          </Button>
+          <Button asChild variant="gradient">
+            <Link href="/inventory"><Plus className="h-4 w-4" />إضافة منتج</Link>
+          </Button>
         </div>
       </div>
 
       <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 xl:grid-cols-4">
         {stats.map((stat) => (
-          <div key={stat.label} className="group relative overflow-hidden rounded-2xl border border-border bg-card p-5 shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md">
+          <Card key={stat.label} className="relative overflow-hidden">
+            <CardContent className="p-6">
             <div className="flex items-start justify-between">
               <div>
                 <p className="text-sm text-muted-foreground">{stat.label}</p>
                 <p className="mt-3 text-2xl font-bold tracking-tight">{stat.value}</p>
               </div>
               <div className={`rounded-xl p-3 ${toneClasses[stat.tone as keyof typeof toneClasses]}`}>
-                <Icon name={stat.icon} size={21} />
+                <stat.icon className="h-5 w-5" />
               </div>
             </div>
             <div className="mt-4 flex items-center gap-1.5 text-xs">
@@ -71,21 +86,19 @@ export default function DashboardPage() {
               </span>
               <span className="text-muted-foreground">{stat.note}</span>
             </div>
-            <div className="absolute -bottom-8 -left-8 h-24 w-24 rounded-full bg-primary/5 blur-2xl transition-all group-hover:scale-150" />
-          </div>
+            <div className="absolute -bottom-4 -left-4 h-24 w-24 rounded-full bg-primary/5 blur-2xl" />
+            </CardContent>
+          </Card>
         ))}
       </div>
 
       <div className="grid grid-cols-1 gap-6 xl:grid-cols-[1.55fr_1fr]">
-        <section className="overflow-hidden rounded-2xl border border-border bg-card shadow-sm">
-          <div className="flex items-center justify-between border-b border-border px-5 py-5">
-            <div>
-              <h2 className="font-semibold">آخر المبيعات</h2>
-              <p className="mt-1 text-xs text-muted-foreground">آخر العمليات المسجلة في الفرع</p>
-            </div>
+        <Card className="overflow-hidden">
+          <CardHeader className="flex flex-row items-center justify-between pb-4">
+            <div><CardTitle className="text-lg">آخر المبيعات</CardTitle><p className="mt-1 text-xs text-muted-foreground">آخر العمليات المسجلة في الفرع</p></div>
             <Link href="/reports" className="text-sm font-medium text-primary hover:underline">عرض التقارير</Link>
-          </div>
-          <div className="overflow-x-auto">
+          </CardHeader>
+          <CardContent className="overflow-x-auto">
             <table className="w-full min-w-[580px] text-right text-sm">
               <thead className="bg-muted/45 text-xs text-muted-foreground">
                 <tr>
@@ -113,23 +126,20 @@ export default function DashboardPage() {
                 ))}
               </tbody>
             </table>
-          </div>
-        </section>
+          </CardContent>
+        </Card>
 
-        <section className="rounded-2xl border border-border bg-card p-5 shadow-sm">
-          <div className="flex items-start justify-between">
-            <div>
-              <h2 className="font-semibold">يحتاج إلى انتباه</h2>
-              <p className="mt-1 text-xs text-muted-foreground">منتجات تقترب من حد إعادة الطلب</p>
-            </div>
+        <Card>
+          <CardHeader className="flex flex-row items-start justify-between pb-4">
+            <div><CardTitle className="text-lg">يحتاج إلى انتباه</CardTitle><p className="mt-1 text-xs text-muted-foreground">منتجات تقترب من حد إعادة الطلب</p></div>
             <Link href="/inventory" className="text-sm font-medium text-primary hover:underline">كل المخزون</Link>
-          </div>
-          <div className="mt-5 space-y-4">
+          </CardHeader>
+          <CardContent className="space-y-4">
             {lowStock.map((product) => (
               <div key={product.name} className="rounded-xl border border-border/80 p-3.5">
                 <div className="flex items-center gap-3">
                   <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-amber-500/10 text-amber-600 dark:text-amber-400">
-                    <Icon name="pill" size={19} />
+                    <Pill className="h-5 w-5" />
                   </div>
                   <div className="min-w-0 flex-1">
                     <p className="truncate text-sm font-semibold">{product.name}</p>
@@ -143,11 +153,12 @@ export default function DashboardPage() {
                 <p className="mt-2 text-[11px] text-muted-foreground">الحد الأدنى: {product.limit} وحدة</p>
               </div>
             ))}
-          </div>
-        </section>
+          </CardContent>
+        </Card>
       </div>
 
-      <section className="rounded-2xl border border-border bg-gradient-to-l from-primary/10 via-card to-card p-6 shadow-sm">
+      <Card className="bg-gradient-to-l from-primary/10 via-card to-card">
+        <CardContent className="p-6">
         <div className="flex flex-col justify-between gap-5 md:flex-row md:items-center">
           <div>
             <p className="text-sm font-medium text-primary">إجراءات سريعة</p>
@@ -155,20 +166,21 @@ export default function DashboardPage() {
             <p className="mt-2 text-sm text-muted-foreground">اختصارات لأكثر المهام استخدامًا في إدارة الصيدلية.</p>
           </div>
           <div className="grid grid-cols-2 gap-3 sm:grid-cols-4">
-            {[
-              { label: 'إضافة موظف', href: '/employees/new', icon: 'users' as const },
-              { label: 'استلام مخزون', href: '/inventory', icon: 'package' as const },
-              { label: 'تسجيل حضور', href: '/attendance', icon: 'calendar' as const },
-              { label: 'تقرير المبيعات', href: '/reports', icon: 'chart' as const },
+              {[
+              { label: 'إضافة موظف', href: '/employees/new', icon: Users },
+              { label: 'استلام مخزون', href: '/inventory', icon: Package },
+              { label: 'تسجيل حضور', href: '/attendance', icon: CalendarCheck },
+              { label: 'تقرير المبيعات', href: '/reports', icon: BarChart3 },
             ].map((action) => (
               <Link key={action.label} href={action.href} className="flex min-w-[115px] flex-col items-center gap-2 rounded-xl border border-border bg-card/80 px-3 py-4 text-center transition-all hover:-translate-y-0.5 hover:border-primary/30 hover:bg-card">
-                <Icon name={action.icon} size={21} className="text-primary" />
+                <action.icon className="h-6 w-6 text-primary" />
                 <span className="text-xs font-medium">{action.label}</span>
               </Link>
             ))}
           </div>
         </div>
-      </section>
+        </CardContent>
+      </Card>
     </div>
   )
 }
