@@ -7,4 +7,4 @@ The Replit package firewall can reject older Go dependencies before the applicat
 
 **Why:** The imported service initially requested Go 1.22 while the workspace exposed Go 1.21, and the firewall rejected old `x/crypto` and `pgx` versions. A compatible Go runtime and safe dependency updates were required before the API could build.
 
-**How to apply:** Check available Go modules and dependency compatibility early when an imported Go project fails before compilation. Keep deployment settings explicit: compile a production binary and run that binary.
+**How to apply:** Check available Go modules and dependency compatibility early when an imported Go project fails before compilation. Keep deployment settings explicit: compile a production binary and run that binary. Avoid output names or paths excluded by `.gitignore`, because the build output may be absent when the publish runtime starts.

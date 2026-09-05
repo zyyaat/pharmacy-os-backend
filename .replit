@@ -8,8 +8,8 @@ expertMode = true
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["go", "run", "./cmd/server"]
-build = ["go", "build", "-o", "server", "./cmd/server"]
+run = ["./pharmacy-api"]
+build = ["go", "build", "-o", "pharmacy-api", "./cmd/server"]
 
 [workflows]
 runButton = "Project"

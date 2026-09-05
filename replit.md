@@ -6,6 +6,13 @@ This repository is a Go 1.25 Gin API. The Replit workflow runs:
 go run ./cmd/server
 ```
 
+Production publishing builds and runs a non-ignored binary:
+
+```bash
+go build -o pharmacy-api ./cmd/server
+./pharmacy-api
+```
+
 The API listens on port `8080` by default. Health checks:
 
 - `GET /health`
