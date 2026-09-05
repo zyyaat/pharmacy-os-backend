@@ -249,6 +249,11 @@ CREATE POLICY "accounts_can_view_own_accounts" ON accounts
 -- ============================================
 
 -- Add company-specific permissions if they don't exist
+ALTER TABLE permissions DROP CONSTRAINT IF EXISTS permissions_valid_key_format;
+ALTER TABLE permissions ADD CONSTRAINT permissions_valid_key_format CHECK (
+    key ~ '^[a-z][a-z_]*(\.[a-z_]+)+$'
+);
+
 INSERT INTO permissions (key, name, description, module, category, is_system, sort_order) VALUES
 -- Company Management
 ('companies.view', 'View Companies', 'Can view company information and details', 'companies', 'read', true, 70),
