@@ -22,16 +22,16 @@ cd frontend/apps/admin-dashboard && NEXT_PUBLIC_API_URL=/api/v1 npx next dev -p 
 
 The Replit-managed PostgreSQL database is connected automatically through `DATABASE_URL` and the `PG*` environment variables. The active development schema is created by migrations `00000000000001_foundation.sql` through `00000000000006_go_auth.sql`; `00000000000001_init.sql` is an older legacy schema and is not part of the active migration sequence.
 
-The frontend workflows use separate preview ports, so they do not overwrite one
-another:
+The frontend workflows use separate local and external preview ports, so they do
+not overwrite one another:
 
-- `Admin Dashboard` — `frontend/apps/admin-dashboard` on port `5000`.
-- `Pharmacy App` — `frontend/apps/pharmacy-app` on port `5001`.
-- `Marketing Site` — `frontend/apps/marketing` on port `5002`.
+- `Admin Dashboard` — `frontend/apps/admin-dashboard` on local/external port `5000`.
+- `Pharmacy App` — `frontend/apps/pharmacy-app` on local `5001`, external `3000`.
+- `Marketing Site` — `frontend/apps/marketing` on local `5002`, external `3001`.
 - `Backend API` — the shared Go API on port `8080`.
 
-Choose the desired port from the Preview port selector when viewing a specific
-frontend.
+Choose `5000`, `3000`, or `3001` from the Preview port selector when viewing a
+specific frontend.
 
 The frontend apps proxy `/api/v1/*` to the backend during Replit development, so browser requests do not use `localhost`.
 
