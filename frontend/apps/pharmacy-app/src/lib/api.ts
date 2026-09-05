@@ -46,7 +46,7 @@ export const authApi = {
   login(email: string, password: string) {
     return apiFetch<{ user: Record<string, unknown>; expires_in: number }>('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, account_type: 'employee' }),
     })
   },
   me() {

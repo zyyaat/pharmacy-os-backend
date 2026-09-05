@@ -12,12 +12,20 @@ run = ["sh", "-c", "cd backend && CGO_ENABLED=0 go build -mod=vendor -o /tmp/pha
 build = ["sh", "-c", "cd backend && CGO_ENABLED=0 go build -mod=vendor -o ../pharmacy-api ./cmd/server"]
 
 [workflows]
-runButton = "Pharmacy App"
+runButton = "Project"
 
 [[workflows.workflow]]
 name = "Project"
 mode = "parallel"
 author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Admin Dashboard"
+
+[[workflows.workflow.tasks]]
+task = "workflow.run"
+args = "Admin Dashboard"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
@@ -44,7 +52,7 @@ outputType = "webview"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "sh -c 'cd backend && go run ./cmd/server > /tmp/admin-backend.log 2>&1 & cd frontend/apps/admin-dashboard && NEXT_PUBLIC_API_URL=/api/v1 npx next dev -p 5000'"
+args = "sh -c 'cd backend && GOSUMDB=sum.golang.org go run ./cmd/server > /tmp/admin-backend.log 2>&1 & cd frontend/apps/admin-dashboard && NEXT_PUBLIC_API_URL=/api/v1 npx next dev -p 5000'"
 waitForPort = 5000
 
 [[workflows.workflow]]
@@ -63,13 +71,13 @@ outputType = "webview"
 name = "Pharmacy App"
 author = "agent"
 
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "sh -c 'cd backend && go run ./cmd/server > /tmp/pharmacy-backend.log 2>&1 & cd frontend/apps/pharmacy-app && NEXT_PUBLIC_API_URL=/api/v1 npm run dev -- -p 5000'"
-waitForPort = 5000
-
 [workflows.workflow.metadata]
 outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "sh -c 'cd backend && GOSUMDB=sum.golang.org go run ./cmd/server > /tmp/pharmacy-backend.log 2>&1 & cd frontend/apps/pharmacy-app && NEXT_PUBLIC_API_URL=/api/v1 npm run dev -- -p 5000'"
+waitForPort = 5000
 
 [[ports]]
 localPort = 5000
