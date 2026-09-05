@@ -12,7 +12,7 @@ run = ["sh", "-c", "cd backend && CGO_ENABLED=0 go build -mod=vendor -o /tmp/pha
 build = ["sh", "-c", "cd backend && CGO_ENABLED=0 go build -mod=vendor -o ../pharmacy-api ./cmd/server"]
 
 [workflows]
-runButton = "Project"
+runButton = "Pharmacy App"
 
 [[workflows.workflow]]
 name = "Project"
@@ -21,7 +21,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "workflow.run"
-args = "Backend API"
+args = "Pharmacy App"
 
 [[workflows.workflow]]
 name = "Backend API"
@@ -34,6 +34,46 @@ waitForPort = 8080
 
 [workflows.workflow.metadata]
 outputType = "console"
+
+[[workflows.workflow]]
+name = "Admin Dashboard"
+author = "agent"
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "sh -c 'cd backend && go run ./cmd/server > /tmp/admin-backend.log 2>&1 & cd frontend/apps/admin-dashboard && NEXT_PUBLIC_API_URL=/api/v1 npx next dev -p 5000'"
+waitForPort = 5000
+
+[[workflows.workflow]]
+name = "Marketing Site"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "cd frontend/apps/marketing && npm run dev -- -p 5000"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[workflows.workflow]]
+name = "Pharmacy App"
+author = "agent"
+
+[[workflows.workflow.tasks]]
+task = "shell.exec"
+args = "sh -c 'cd backend && go run ./cmd/server > /tmp/pharmacy-backend.log 2>&1 & cd frontend/apps/pharmacy-app && NEXT_PUBLIC_API_URL=/api/v1 npm run dev -- -p 5000'"
+waitForPort = 5000
+
+[workflows.workflow.metadata]
+outputType = "webview"
+
+[[ports]]
+localPort = 5000
+externalPort = 5000
 
 [[ports]]
 localPort = 8080

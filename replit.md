@@ -9,13 +9,23 @@ This repository contains the Pharmacy OS frontend monorepo and backend:
 - `SYSTEM_GUIDE.md` — the full product, architecture, authentication, data model,
   deployment, and agent-development guide. Read it before changing the project.
 
-## Backend setup
+## Replit setup
 
-The Replit workflow runs:
+The `Pharmacy App` workflow is the primary Run workflow. It starts the Go API and the pharmacy frontend together:
 
 ```bash
 cd backend && go run ./cmd/server
+cd frontend/apps/pharmacy-app && NEXT_PUBLIC_API_URL=/api/v1 npm run dev -- -p 5000
 ```
+
+The Replit-managed PostgreSQL database is connected automatically through `DATABASE_URL` and the `PG*` environment variables. The active development schema is created by migrations `00000000000001_foundation.sql` through `00000000000006_go_auth.sql`; `00000000000001_init.sql` is an older legacy schema and is not part of the active migration sequence.
+
+Alternative frontend workflows are available, but only one frontend should use preview port `5000` at a time:
+
+- `Admin Dashboard` — admin frontend plus the Go API.
+- `Marketing Site` — public marketing frontend.
+
+The frontend apps proxy `/api/v1/*` to the backend during Replit development, so browser requests do not use `localhost`.
 
 Production publishing builds and runs a non-ignored binary:
 
@@ -31,7 +41,7 @@ The backend API listens on port `8080` by default. Health checks:
 
 For the backend, configure these environment variables in Replit Secrets:
 
-- `DATABASE_URL` — PostgreSQL connection string. Supabase is used only as the database provider.
+- `DATABASE_URL` — Replit-managed PostgreSQL connection string; injected automatically.
 - `RIVER_DSN` — optional PostgreSQL queue connection string; defaults to the application database URL in the documented setup.
 - `BREVO_API_KEY` — Brevo API key for email verification and password reset.
 - `MAIL_FROM_EMAIL` — verified Brevo sender email.
