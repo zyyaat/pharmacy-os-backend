@@ -6,6 +6,8 @@ This repository contains the Pharmacy OS frontend monorepo and backend:
 - `frontend/apps/admin-dashboard/` — the Next.js admin dashboard.
 - `frontend/apps/marketing/` — the Next.js public marketing site.
 - `backend/` — the Go 1.25 Gin API and its migrations.
+- `SYSTEM_GUIDE.md` — the full product, architecture, authentication, data model,
+  deployment, and agent-development guide. Read it before changing the project.
 
 ## Backend setup
 
