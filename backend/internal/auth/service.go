@@ -347,6 +347,41 @@ func (s *Service) RegisterCompany(ctx context.Context, companyName, companyEmail
 		return nil, fmt.Errorf("create company: %w", err)
 	}
 
+	var accountID string
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO accounts (
+			company_id, company_name, contact_email, status,
+			subscription_plan, default_currency, timezone, locale
+		) VALUES ($1, $2, $3, 'trial', 'free', 'EGP', 'Africa/Cairo', 'ar-EG')
+		RETURNING id::text
+	`, companyID, strings.TrimSpace(companyName), normalizeEmail(companyEmail)).Scan(&accountID); err != nil {
+		return nil, fmt.Errorf("create account: %w", err)
+	}
+
+	var pharmacyID string
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO pharmacies (
+			account_id, name, email, country, is_main_branch, currency
+		) VALUES ($1, $2, $3, 'EG', true, 'EGP')
+		RETURNING id::text
+	`, accountID, strings.TrimSpace(companyName), normalizeEmail(companyEmail)).Scan(&pharmacyID); err != nil {
+		return nil, fmt.Errorf("create pharmacy: %w", err)
+	}
+
+	var branchID string
+	if err := tx.QueryRow(ctx, `
+		INSERT INTO branches (pharmacy_id, name, code, country)
+		VALUES ($1, 'الفرع الرئيسي', 'MAIN', 'EG')
+		RETURNING id::text
+	`, pharmacyID).Scan(&branchID); err != nil {
+		return nil, fmt.Errorf("create main branch: %w", err)
+	}
+	if _, err := tx.Exec(ctx, `
+		UPDATE pharmacies SET default_branch_id = $2 WHERE id = $1
+	`, pharmacyID, branchID); err != nil {
+		return nil, fmt.Errorf("set default branch: %w", err)
+	}
+
 	var userID string
 	if err := tx.QueryRow(ctx, `
 		INSERT INTO company_users (
@@ -366,7 +401,7 @@ func (s *Service) RegisterCompany(ctx context.Context, companyName, companyEmail
 		FROM permissions p
 		WHERE p.key = ANY($2::text[])
 		ON CONFLICT (company_user_id, permission_id)
-		DO UPDATE SET is_active = true, revoked_at = NULL, revocation_reason = NULL
+		DO UPDATE SET revoked_at = NULL, revocation_reason = NULL
 	`, userID, []string{
 		"companies.view", "companies.update",
 		"company_users.view", "company_users.create", "company_users.update",
@@ -384,18 +419,22 @@ func (s *Service) findCompanyUser(ctx context.Context, email, companyID string) 
 	var p Principal
 	err := s.db.QueryRow(ctx, `
 		SELECT id::text, email, first_name, last_name, COALESCE(display_name, ''),
-		       role::text, company_id::text, COALESCE(password_hash, ''),
+		       role::text, company_id::text, COALESCE(p.id::text, ''),
+		       COALESCE(b.id::text, ''), COALESCE(password_hash, ''),
 		       is_active, email_verified_at IS NOT NULL, login_attempts, locked_until,
 		       permission_version
-		FROM company_users
+		FROM company_users cu
+		LEFT JOIN accounts a ON a.company_id = cu.company_id AND a.deleted_at IS NULL
+		LEFT JOIN pharmacies p ON p.account_id = a.id AND p.is_active = true AND p.is_main_branch = true
+		LEFT JOIN branches b ON b.id = p.default_branch_id AND b.is_active = true
 		WHERE LOWER(email) = LOWER($1)
-		  AND ($2 = '' OR company_id::text = $2)
-		  AND deleted_at IS NULL
-		ORDER BY created_at
+		  AND ($2 = '' OR cu.company_id::text = $2)
+		  AND cu.deleted_at IS NULL
+		ORDER BY cu.created_at
 		LIMIT 1
 	`, email, companyID).Scan(
 		&p.ID, &p.Email, &p.FirstName, &p.LastName, &p.DisplayName, &p.Role,
-		&p.CompanyID, &p.PasswordHash, &p.IsActive, &p.EmailVerified,
+		&p.CompanyID, &p.PharmacyID, &p.BranchID, &p.PasswordHash, &p.IsActive, &p.EmailVerified,
 		&p.LoginAttempts, &p.LockedUntil, &p.PermissionVersion,
 	)
 	if err != nil {
@@ -435,12 +474,17 @@ func (s *Service) findPrincipalByID(ctx context.Context, principalType, id strin
 		var p Principal
 		err := s.db.QueryRow(ctx, `
 			SELECT id::text, email, first_name, last_name, COALESCE(display_name, ''),
-			       role::text, company_id::text, COALESCE(password_hash, ''),
+			       role::text, company_id::text, COALESCE(p.id::text, ''),
+			       COALESCE(b.id::text, ''), COALESCE(password_hash, ''),
 			       is_active, email_verified_at IS NOT NULL, login_attempts, locked_until,
 			       permission_version
-			FROM company_users WHERE id = $1 AND deleted_at IS NULL
+			FROM company_users cu
+			LEFT JOIN accounts a ON a.company_id = cu.company_id AND a.deleted_at IS NULL
+			LEFT JOIN pharmacies p ON p.account_id = a.id AND p.is_active = true AND p.is_main_branch = true
+			LEFT JOIN branches b ON b.id = p.default_branch_id AND b.is_active = true
+			WHERE cu.id = $1 AND cu.deleted_at IS NULL
 		`, id).Scan(&p.ID, &p.Email, &p.FirstName, &p.LastName, &p.DisplayName, &p.Role,
-			&p.CompanyID, &p.PasswordHash, &p.IsActive, &p.EmailVerified, &p.LoginAttempts,
+			&p.CompanyID, &p.PharmacyID, &p.BranchID, &p.PasswordHash, &p.IsActive, &p.EmailVerified, &p.LoginAttempts,
 			&p.LockedUntil, &p.PermissionVersion)
 		if err != nil {
 			return nil, err
@@ -493,6 +537,13 @@ func (s *Service) createSession(ctx context.Context, principal *Principal, meta 
 		return nil, fmt.Errorf("create session: %w", err)
 	}
 	return tokens, nil
+}
+
+// CreateSession creates a browser session for a newly registered principal.
+// Registration uses this instead of requiring the user to enter credentials a
+// second time after the account has been created.
+func (s *Service) CreateSession(ctx context.Context, principal *Principal, meta RequestMeta) (*SessionTokens, error) {
+	return s.createSession(ctx, principal, meta)
 }
 
 func (s *Service) recordFailedLogin(ctx context.Context, principal *Principal) (bool, error) {

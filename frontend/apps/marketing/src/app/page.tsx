@@ -66,7 +66,7 @@ export default function Home() {
           </p>
 
           <div className="hero-actions" id="start">
-            <a className="button button-primary" href="#contact">
+            <a className="button button-primary" href="/register">
               ابدأ الآن
               <span aria-hidden="true">←</span>
             </a>

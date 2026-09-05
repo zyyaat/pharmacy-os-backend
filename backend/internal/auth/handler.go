@@ -86,6 +86,7 @@ func (h *Handler) register(c *gin.Context) {
 	if err != nil {
 		if strings.Contains(strings.ToLower(err.Error()), "duplicate") ||
 			strings.Contains(strings.ToLower(err.Error()), "unique") {
+			log.Printf("company registration conflict: %v", err)
 			writeError(c, http.StatusConflict, "account_exists", "An account with these details already exists")
 			return
 		}
@@ -95,17 +96,34 @@ func (h *Handler) register(c *gin.Context) {
 	}
 	token, err := h.service.CreateEmailToken(c.Request.Context(), principal, VerifyEmailPurpose)
 	if err != nil {
-		writeError(c, http.StatusInternalServerError, "verification_failed", "Could not create verification request")
+		log.Printf("registration verification token failed: %v", err)
+	}
+	emailSent := false
+	if token != "" {
+		if err := h.mailer.verificationEmail(c.Request.Context(), principal.Email, token); err != nil {
+			log.Printf("registration verification email failed: %v", err)
+		} else {
+			emailSent = true
+		}
+	}
+	tokens, err := h.service.CreateSession(c.Request.Context(), principal, RequestMeta{
+		IPAddress: c.ClientIP(),
+		UserAgent: c.GetHeader("User-Agent"),
+	})
+	if err != nil {
+		writeError(c, http.StatusInternalServerError, "session_error", "Account created, but could not start a session")
 		return
 	}
-	if err := h.mailer.verificationEmail(c.Request.Context(), principal.Email, token); err != nil {
-		log.Printf("registration verification email failed: %v", err)
-		writeError(c, http.StatusServiceUnavailable, "email_service_unavailable", "Account created, but email service is not configured")
+	if err := h.setAuthCookies(c, tokens); err != nil {
+		log.Printf("registration auth cookie setup failed: %v", err)
+		writeError(c, http.StatusInternalServerError, "session_error", "Account created, but could not start a session")
 		return
 	}
 	c.JSON(http.StatusCreated, gin.H{
-		"user":    userPayload(principal),
-		"message": "Account created. Please verify your email before signing in.",
+		"user":                        userPayload(principal),
+		"message":                     "Account created. You are signed in. Please verify your email to keep your account secure.",
+		"email_verification_sent":     emailSent,
+		"email_verification_required": true,
 	})
 }
 
