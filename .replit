@@ -12,36 +12,7 @@ run = ["sh", "-c", "cd backend && CGO_ENABLED=0 go build -mod=vendor -o /tmp/pha
 build = ["sh", "-c", "cd backend && CGO_ENABLED=0 go build -mod=vendor -o ../pharmacy-api ./cmd/server"]
 
 [workflows]
-runButton = "Project"
-
-[[workflows.workflow]]
-name = "Project"
-mode = "parallel"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Admin Dashboard"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Admin Dashboard"
-
-[[workflows.workflow.tasks]]
-task = "workflow.run"
-args = "Pharmacy App"
-
-[[workflows.workflow]]
-name = "Backend API"
-author = "agent"
-
-[[workflows.workflow.tasks]]
-task = "shell.exec"
-args = "cd backend && go run ./cmd/server"
-waitForPort = 8080
-
-[workflows.workflow.metadata]
-outputType = "console"
+runButton = "Admin Dashboard"
 
 [[workflows.workflow]]
 name = "Admin Dashboard"
@@ -59,13 +30,13 @@ waitForPort = 5000
 name = "Marketing Site"
 author = "agent"
 
+[workflows.workflow.metadata]
+outputType = "webview"
+
 [[workflows.workflow.tasks]]
 task = "shell.exec"
 args = "cd frontend/apps/marketing && npm run dev -- -p 5000"
 waitForPort = 5000
-
-[workflows.workflow.metadata]
-outputType = "webview"
 
 [[workflows.workflow]]
 name = "Pharmacy App"

@@ -11,19 +11,22 @@ This repository contains the Pharmacy OS frontend monorepo and backend:
 
 ## Replit setup
 
-The `Pharmacy App` workflow is the primary Run workflow. It starts the Go API and the pharmacy frontend together:
+Each frontend has its own independent workflow. The selected Run workflow is
+`Admin Dashboard`, which starts the Go API and the admin frontend together:
 
 ```bash
-cd backend && go run ./cmd/server
-cd frontend/apps/pharmacy-app && NEXT_PUBLIC_API_URL=/api/v1 npm run dev -- -p 5000
+cd backend && GOSUMDB=sum.golang.org go run ./cmd/server
+cd frontend/apps/admin-dashboard && NEXT_PUBLIC_API_URL=/api/v1 npx next dev -p 5000
 ```
 
 The Replit-managed PostgreSQL database is connected automatically through `DATABASE_URL` and the `PG*` environment variables. The active development schema is created by migrations `00000000000001_foundation.sql` through `00000000000006_go_auth.sql`; `00000000000001_init.sql` is an older legacy schema and is not part of the active migration sequence.
 
-Alternative frontend workflows are available, but only one frontend should use preview port `5000` at a time:
+The three frontend workflows are alternatives, because they all use preview port
+`5000`; stop the currently running one before starting another:
 
-- `Admin Dashboard` — admin frontend plus the Go API.
-- `Marketing Site` — public marketing frontend.
+- `Admin Dashboard` — `frontend/apps/admin-dashboard` plus the Go API.
+- `Pharmacy App` — `frontend/apps/pharmacy-app` plus the Go API.
+- `Marketing Site` — `frontend/apps/marketing` only.
 
 The frontend apps proxy `/api/v1/*` to the backend during Replit development, so browser requests do not use `localhost`.
 
