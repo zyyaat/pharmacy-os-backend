@@ -174,7 +174,7 @@ CREATE POLICY "pharmacies_can_view_own_branches" ON branches
 -- ============================================
 -- TABLE: employees
 -- Description: Staff members working at pharmacies/branches
---              Auth is handled by Supabase Auth (no password_hash here)
+--              Authentication is handled by the Go API.
 -- ============================================
 CREATE TABLE employees (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -184,8 +184,8 @@ CREATE TABLE employees (
     pharmacy_id UUID NOT NULL REFERENCES pharmacies(id) ON DELETE CASCADE,
     branch_id UUID REFERENCES branches(id) ON DELETE SET NULL,
     
-    -- Supabase Auth Integration
-    auth_user_id UUID UNIQUE, -- References supabase.auth.users (via function, not FK)
+    -- Legacy provider identifier retained for data compatibility.
+    auth_user_id UUID UNIQUE,
     email VARCHAR(255) NOT NULL,
     
     -- Personal Information
@@ -303,8 +303,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 COMMENT ON TABLE accounts IS 'Top-level tenant accounts - represents the paying customer';
 COMMENT ON TABLE pharmacies IS 'Individual pharmacy locations belonging to an account';
 COMMENT ON TABLE branches IS 'Optional sub-branches within a pharmacy for multi-location setups';
-COMMENT ON TABLE employees IS 'Staff members - authentication handled by Supabase Auth';
+COMMENT ON TABLE employees IS 'Staff members - authentication handled by the Go API';
 
-COMMENT ON COLUMN employees.auth_user_id IS 'References supabase.auth.users - set after Supabase Auth signup';
+COMMENT ON COLUMN employees.auth_user_id IS 'Legacy authentication provider identifier; unused by the Go API';
 COMMENT ON COLUMN employees.permission_version IS 'Incremented when permissions change - used for JWT cache invalidation';
 COMMENT ON COLUMN pharmacies.is_main_branch IS 'True for single-pharmacy or headquarters in multi-branch setup';

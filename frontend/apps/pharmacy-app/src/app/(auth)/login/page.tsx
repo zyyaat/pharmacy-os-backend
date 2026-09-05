@@ -1,4 +1,30 @@
+"use client"
+
+import { FormEvent, useState } from 'react'
+import { useRouter } from 'next/navigation'
+import { authApi } from '@/lib/api'
+
 export default function LoginPage() {
+  const router = useRouter()
+  const [email, setEmail] = useState('')
+  const [password, setPassword] = useState('')
+  const [error, setError] = useState('')
+  const [loading, setLoading] = useState(false)
+
+  async function handleSubmit(event: FormEvent) {
+    event.preventDefault()
+    setError('')
+    setLoading(true)
+    try {
+      await authApi.login(email, password)
+      router.push('/')
+    } catch (err) {
+      setError(err instanceof Error ? err.message : 'فشل تسجيل الدخول')
+    } finally {
+      setLoading(false)
+    }
+  }
+
   return (
     <div className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-8">
       <div className="absolute -right-32 -top-32 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
@@ -39,7 +65,8 @@ export default function LoginPage() {
             <h2 className="mt-2 text-2xl font-bold">أهلًا بك من جديد</h2>
             <p className="mt-2 text-sm text-muted-foreground">سجّل دخولك للوصول إلى لوحة الصيدلية.</p>
           </div>
-          <form className="mt-8 space-y-5" autoComplete="on">
+          <form className="mt-8 space-y-5" autoComplete="on" onSubmit={handleSubmit}>
+            {error && <p className="rounded-xl bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
             <label className="block">
               <span className="mb-2 block text-sm font-medium">البريد الإلكتروني</span>
               <input
@@ -47,6 +74,8 @@ export default function LoginPage() {
                 placeholder="name@pharmacy.com"
                 autoComplete="email"
                 type="email"
+                value={email}
+                onChange={(event) => setEmail(event.target.value)}
               />
             </label>
             <label className="block">
@@ -59,14 +88,16 @@ export default function LoginPage() {
                 placeholder="••••••••"
                 autoComplete="current-password"
                 type="password"
+                value={password}
+                onChange={(event) => setPassword(event.target.value)}
               />
             </label>
             <label className="flex items-center gap-2 text-sm text-muted-foreground">
               <input className="h-4 w-4 rounded border-input accent-primary" type="checkbox" />
               تذكرني على هذا الجهاز
             </label>
-            <button className="h-12 w-full rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 hover:bg-primary/90" type="submit">
-              تسجيل الدخول
+            <button disabled={loading} className="h-12 w-full rounded-xl bg-primary text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition-all hover:-translate-y-0.5 hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60" type="submit">
+              {loading ? 'جاري تسجيل الدخول...' : 'تسجيل الدخول'}
             </button>
           </form>
           <p className="mt-8 text-center text-xs text-muted-foreground">تحتاج مساعدة؟ تواصل مع مسؤول النظام</p>

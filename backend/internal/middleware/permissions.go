@@ -436,15 +436,10 @@ func buildCacheKey(employeeID, permissionKey string) string {
         return fmt.Sprintf("%s:%s", employeeID, permissionKey)
 }
 
-// getPermissionVersion extracts permission version from JWT claims
+// getPermissionVersion extracts permission version from the authenticated session
 // Used for cache invalidation when permissions change
 func getPermissionVersion(c *gin.Context) int {
-        claims, ok := GetJWTClaims(c)
-        if !ok || claims == nil {
-                return 0
-        }
-        
-        return claims.PermissionVersion
+        return GetPermissionVersion(c)
 }
 
 // InvalidateUserCache clears cached permissions for a specific user

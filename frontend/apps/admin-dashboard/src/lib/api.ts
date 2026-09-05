@@ -12,24 +12,21 @@ async function apiFetch<T>(
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`
   
-  // Get auth token from localStorage or cookie
-  const token = typeof window !== 'undefined' 
-    ? localStorage.getItem('auth_token') || document.cookie?.match(/auth_token=([^;]+)/)?.[1]
-    : null
-
   const headers: HeadersInit = {
     'Content-Type': 'application/json',
     ...(options.headers as Record<string, string>),
   }
 
-  if (token) {
-    headers['Authorization'] = `Bearer ${token}`
+  if (typeof window !== 'undefined' && options.method && options.method !== 'GET') {
+    const csrf = document.cookie.match(/(?:^|; )pharmacy_csrf=([^;]+)/)?.[1]
+    if (csrf) headers['X-CSRF-Token'] = decodeURIComponent(csrf)
   }
 
   try {
     const response = await fetch(url, {
       ...options,
       headers,
+      credentials: 'include',
     })
 
     if (!response.ok) {
@@ -50,10 +47,21 @@ async function apiFetch<T>(
 
 export const authApi = {
   async login(email: string, password: string) {
-    return apiFetch<{ user: CompanyUser; token: string; expiresIn: number }>('/auth/login', {
+    const response = await apiFetch<{
+      data?: { user: CompanyUser; expires_in: number }
+      user?: CompanyUser
+      expires_in?: number
+    }>('/auth/login', {
       method: 'POST',
-      body: JSON.stringify({ email, password }),
+      body: JSON.stringify({ email, password, account_type: 'company_user' }),
     })
+    const user = response.data?.user || response.user
+    if (!user) throw new Error('Login response did not include a user')
+    return {
+      user,
+      token: '',
+      expiresIn: response.data?.expires_in || response.expires_in || 0,
+    }
   },
 
   async logout() {
@@ -61,7 +69,8 @@ export const authApi = {
   },
 
   async getProfile() {
-    return apiFetch<CompanyUser>('/auth/me')
+    const response = await apiFetch<{ user: CompanyUser }>('/auth/me')
+    return response.user
   },
 
   async changePassword(currentPassword: string, newPassword: string) {

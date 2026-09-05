@@ -78,7 +78,7 @@ func DefaultTenantConfig(dbPool *pgxpool.Pool) *TenantConfig {
 // 3. Executes SET LOCAL for RLS tenant isolation
 // 4. Ensures transaction is committed/rolled back after request completes
 //
-// IMPORTANT: This must be placed AFTER SupabaseAuth() middleware in the chain
+// IMPORTANT: This must be placed after the Go auth middleware in the chain
 func TenantContext(config *TenantConfig) gin.HandlerFunc {
         return func(c *gin.Context) {
                 ctx := c.Request.Context()
@@ -89,7 +89,7 @@ func TenantContext(config *TenantConfig) gin.HandlerFunc {
                         return
                 }
                 
-                // Get user ID from auth context (set by SupabaseAuth middleware)
+                // Get user ID from the Go auth context
                 userID := GetUserID(c)
                 if userID == "" && config.RequirePharmacyID {
                         c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
@@ -280,7 +280,7 @@ func lookupEmployeeTenantInfo(
         pool *pgxpool.Pool,
         authUserID string,
 ) (pharmacyID, branchID, employeeID, accountID string, err error) {
-        // Query employees table using auth_user_id (Supabase auth UUID)
+        // Query employees table using the Go-authenticated employee UUID
         // We don't use RLS here because we're looking up the tenant itself
         const query = `
                 SELECT 
@@ -291,8 +291,8 @@ func lookupEmployeeTenantInfo(
                         p.id as verify_pharmacy_id
                 FROM employees e
                 LEFT JOIN pharmacies p ON e.pharmacy_id = p.id
-                WHERE e.auth_user_id = $1 
-                  AND e.status = 'active'
+                WHERE e.id = $1
+                  AND e.is_active = true
                 LIMIT 1
         `
         

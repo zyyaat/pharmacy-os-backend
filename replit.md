@@ -29,18 +29,24 @@ The backend API listens on port `8080` by default. Health checks:
 
 For the backend, configure these environment variables in Replit Secrets:
 
-- `DATABASE_URL` — PostgreSQL/Supabase connection string (the Replit runtime manages its own `DATABASE_URL`; replace it only when using an external database connection).
-- `SUPABASE_URL` — Supabase project URL.
-- `SUPABASE_JWT_SECRET` — Supabase JWT signing secret.
+- `DATABASE_URL` — PostgreSQL connection string. Supabase is used only as the database provider.
 - `RIVER_DSN` — optional PostgreSQL queue connection string; defaults to the application database URL in the documented setup.
+- `BREVO_API_KEY` — Brevo API key for email verification and password reset.
+- `MAIL_FROM_EMAIL` — verified Brevo sender email.
+- `MAIL_FROM_NAME` — optional sender name.
+- `PUBLIC_APP_URL` — public Vercel URL used in email links.
+- `AUTH_COOKIE_SECURE` — set to `true` in production.
 
-Set `CORS_ORIGINS` to the exact Vercel frontend origin, without a trailing slash, for example:
+Set `CORS_ORIGINS` to the exact Vercel frontend origins, without trailing slashes, for example:
 
 ```text
 https://your-frontend.vercel.app
 ```
 
-Dependencies are installed with `go mod download`; use `go build ./cmd/server` to verify the server build.
+Apply `backend/migrations/00000000000006_go_auth.sql` before using the auth endpoints.
+The Go API owns authentication: passwords, email tokens, opaque sessions, cookie
+rotation, revocation, and CSRF validation. The frontend must use
+`credentials: include`; it must not store auth tokens in localStorage.
 
 ## Frontend
 

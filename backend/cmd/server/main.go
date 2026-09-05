@@ -2,8 +2,11 @@
 package main
 
 import (
+	"context"
 	"log"
+	"time"
 
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pharmacy-os/backend/internal/config"
 	"github.com/pharmacy-os/backend/internal/handlers"
 )
@@ -12,8 +15,19 @@ func main() {
 	// Load configuration
 	cfg := config.Load()
 
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
+	defer cancel()
+	db, err := pgxpool.New(ctx, cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("Failed to initialize database pool: %v", err)
+	}
+	defer db.Close()
+	if err := db.Ping(ctx); err != nil {
+		log.Fatalf("Failed to connect to database: %v", err)
+	}
+
 	// Initialize handlers
-	h := handlers.New(cfg)
+	h := handlers.New(cfg, db)
 
 	// Start server
 	log.Printf("Starting server on port %s", cfg.Port)

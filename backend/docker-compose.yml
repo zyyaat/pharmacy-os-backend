@@ -12,8 +12,10 @@ services:
       - PORT=${PORT:-8080}
       - APP_ENV=${APP_ENV:-development}
       - DATABASE_URL=${DATABASE_URL}
-      - SUPABASE_URL=${SUPABASE_URL}
-      - SUPABASE_JWT_SECRET=${SUPABASE_JWT_SECRET}
+      - BREVO_API_KEY=${BREVO_API_KEY}
+      - MAIL_FROM_EMAIL=${MAIL_FROM_EMAIL}
+      - MAIL_FROM_NAME=${MAIL_FROM_NAME:-Pharmacy OS}
+      - PUBLIC_APP_URL=${PUBLIC_APP_URL}
       - RIVER_DSN=${RIVER_DSN:-$DATABASE_URL}
       - LOG_LEVEL=${LOG_LEVEL:-info}
       - CORS_ORIGINS=${CORS_ORIGINS:-http://localhost:3000,http://localhost:3001}

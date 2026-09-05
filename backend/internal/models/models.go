@@ -76,13 +76,13 @@ type Branch struct {
 	UpdatedAt    time.Time  `json:"updated_at"`
 }
 
-// Employee represents a pharmacy employee (auth via Supabase Auth)
+// Employee represents a pharmacy employee (authentication is owned by the Go API)
 type Employee struct {
 	ID                   string     `json:"id"`
 	AccountID            string     `json:"account_id"`
 	PharmacyID           string     `json:"pharmacy_id"`
 	BranchID             *string    `json:"branch_id,omitempty"`
-	AuthUserID           *string    `json:"auth_user_id,omitempty"` // Supabase auth.users ID
+	AuthUserID           *string    `json:"auth_user_id,omitempty"` // Legacy provider identifier; unused by Go auth
 	Email                string     `json:"email"`
 	FirstName            string     `json:"first_name"`
 	LastName             string     `json:"last_name"`

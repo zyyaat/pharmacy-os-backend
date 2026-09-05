@@ -10,7 +10,7 @@
 //
 // Prerequisites:
 // - PostgreSQL database running (via docker-compose)
-// - Migrations applied (supabase db push)
+// - Migrations applied to the configured PostgreSQL database
 // - Test database configured (TEST_DATABASE_URL env var)
 package integration
 

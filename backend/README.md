@@ -13,7 +13,7 @@ Pharmacy OS Backend is a RESTful API built with Go (Gin framework) for managing 
 ### Prerequisites
 
 - Go 1.21+
-- PostgreSQL (or Supabase)
+- PostgreSQL (Supabase can be used as the PostgreSQL provider)
 - Git
 
 ### Installation
@@ -53,8 +53,12 @@ See [`.env.example`](.env.example) for all available environment variables:
 | `PORT` | Server port | `8080` |
 | `APP_ENV` | Environment (development/staging/production) | `development` |
 | `DATABASE_URL` | PostgreSQL connection string | - |
-| `SUPABASE_URL` | Supabase project URL | - |
-| `SUPABASE_JWT_SECRET` | Supabase JWT secret | - |
+| `AUTH_COOKIE_SECURE` | Set to `true` in production | `false` |
+| `AUTH_COOKIE_DOMAIN` | Optional cookie domain | - |
+| `BREVO_API_KEY` | Brevo API key for verification and password reset email | - |
+| `MAIL_FROM_EMAIL` | Verified Brevo sender email | - |
+| `MAIL_FROM_NAME` | Sender name | `Pharmacy OS` |
+| `PUBLIC_APP_URL` | Public frontend URL used in email links | - |
 | `RIVER_DSN` | River Queue DSN | Same as DATABASE_URL |
 | `CORS_ORIGINS` | Allowed CORS origins | `localhost:3000,3001` |
 
@@ -121,14 +125,29 @@ SQL migration files are located in the [`migrations/`](migrations/) directory:
 4. `00000000000004_audit_logs.sql` - Audit logging
 5. `00000000000005_holding_company.sql` - Multi-tenant support
 
-Run migrations on your Supabase dashboard or using:
-```bash
-supabase db push
-```
+Apply the SQL migrations using your PostgreSQL provider. The
+`00000000000006_go_auth.sql` migration creates the Go-owned session and
+email-token tables.
 
 ## 🔐 Authentication
 
-The API uses Supabase JWT tokens for authentication.
+Authentication is fully owned by the Go API. It uses bcrypt password hashes,
+opaque short-lived access cookies, rotating refresh cookies, database-backed
+session revocation, and CSRF protection. Supabase is only used as PostgreSQL.
+
+Auth endpoints:
+```
+POST /api/v1/auth/login
+POST /api/v1/auth/refresh
+POST /api/v1/auth/logout
+GET  /api/v1/auth/me
+POST /api/v1/auth/logout-all
+POST /api/v1/auth/change-password
+POST /api/v1/auth/forgot-password
+POST /api/v1/auth/reset-password
+POST /api/v1/auth/verify-email
+POST /api/v1/auth/resend-verification
+```
 
 **Headers:**
 ```

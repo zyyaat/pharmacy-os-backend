@@ -2,6 +2,7 @@
 
 import React, { useState } from "react";
 import Link from "next/link";
+import { useRouter } from "next/navigation";
 import { 
   Eye, 
   EyeOff, 
@@ -13,11 +14,14 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { Input } from "@/components/ui";
+import { useAuth } from "@/hooks/useAuth";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const router = useRouter();
+  const { login } = useAuth();
   const [formData, setFormData] = useState({
     email: "",
     password: "",
@@ -36,13 +40,14 @@ export default function LoginPage() {
 
     setIsLoading(true);
     
-    // Simulate API call
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    
-    setIsLoading(false);
-    
-    // For demo - show success (in real app, would redirect)
-    console.log("Login attempt:", formData.email);
+    try {
+      await login({ email: formData.email, password: formData.password });
+      router.push("/");
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "فشل تسجيل الدخول");
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
