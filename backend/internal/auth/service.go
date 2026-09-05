@@ -419,11 +419,11 @@ func (s *Service) RegisterCompany(ctx context.Context, companyName, companyEmail
 func (s *Service) findCompanyUser(ctx context.Context, email, companyID string) (*Principal, error) {
 	var p Principal
 	err := s.db.QueryRow(ctx, `
-		SELECT id::text, email, first_name, last_name, COALESCE(display_name, ''),
-		       role::text, company_id::text, COALESCE(p.id::text, ''),
-		       COALESCE(b.id::text, ''), COALESCE(password_hash, ''),
-		       is_active, email_verified_at IS NOT NULL, login_attempts, locked_until,
-		       permission_version
+		SELECT cu.id::text, cu.email, cu.first_name, cu.last_name, COALESCE(cu.display_name, ''),
+		       cu.role::text, cu.company_id::text, COALESCE(p.id::text, ''),
+		       COALESCE(b.id::text, ''), COALESCE(cu.password_hash, ''),
+		       cu.is_active, cu.email_verified_at IS NOT NULL, cu.login_attempts, cu.locked_until,
+		       cu.permission_version
 		FROM company_users cu
 		LEFT JOIN accounts a ON a.company_id = cu.company_id AND a.deleted_at IS NULL
 		LEFT JOIN pharmacies p ON p.account_id = a.id AND p.is_active = true AND p.is_main_branch = true
@@ -474,11 +474,11 @@ func (s *Service) findPrincipalByID(ctx context.Context, principalType, id strin
 	if principalType == CompanyUserPrincipal {
 		var p Principal
 		err := s.db.QueryRow(ctx, `
-			SELECT id::text, email, first_name, last_name, COALESCE(display_name, ''),
-			       role::text, company_id::text, COALESCE(p.id::text, ''),
-			       COALESCE(b.id::text, ''), COALESCE(password_hash, ''),
-			       is_active, email_verified_at IS NOT NULL, login_attempts, locked_until,
-			       permission_version
+			SELECT cu.id::text, cu.email, cu.first_name, cu.last_name, COALESCE(cu.display_name, ''),
+			       cu.role::text, cu.company_id::text, COALESCE(p.id::text, ''),
+			       COALESCE(b.id::text, ''), COALESCE(cu.password_hash, ''),
+			       cu.is_active, cu.email_verified_at IS NOT NULL, cu.login_attempts, cu.locked_until,
+			       cu.permission_version
 			FROM company_users cu
 			LEFT JOIN accounts a ON a.company_id = cu.company_id AND a.deleted_at IS NULL
 			LEFT JOIN pharmacies p ON p.account_id = a.id AND p.is_active = true AND p.is_main_branch = true

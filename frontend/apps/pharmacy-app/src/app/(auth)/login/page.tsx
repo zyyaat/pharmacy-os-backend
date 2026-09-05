@@ -64,7 +64,7 @@ export default function LoginPage() {
           <div>
             <p className="text-sm font-medium text-primary">تسجيل الدخول</p>
             <h2 className="mt-2 text-2xl font-bold">أهلًا بك من جديد</h2>
-            <p className="mt-2 text-sm text-muted-foreground">سجّل دخولك للوصول إلى لوحة الصيدلية.</p>
+            <p className="mt-2 text-sm text-muted-foreground">سجّل دخولك كمالك أو موظف للوصول إلى لوحة الصيدلية.</p>
           </div>
           <form className="mt-8 space-y-5" autoComplete="on" onSubmit={handleSubmit}>
             {error && <p className="rounded-xl bg-destructive/10 p-3 text-sm text-destructive">{error}</p>}
