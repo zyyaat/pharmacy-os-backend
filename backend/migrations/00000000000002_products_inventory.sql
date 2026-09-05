@@ -90,13 +90,12 @@ CREATE TABLE global_products (
     is_active BOOLEAN DEFAULT true,
     created_by UUID, -- System admin who created it
     created_at TIMESTAMPTZ DEFAULT NOW(),
-    updated_at TIMESTAMPTZ DEFAULT NOW(),
-    
-    -- Constraints
-    CONSTRAINT global_products_unique_barcode UNIQUE (barcode) WHERE barcode IS NOT NULL
+    updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
 -- Indexes for global products
+CREATE UNIQUE INDEX idx_global_products_unique_barcode
+    ON global_products(barcode) WHERE barcode IS NOT NULL;
 CREATE INDEX idx_global_products_name ON global_products USING gin(to_tsvector('english', name));
 CREATE INDEX idx_global_products_brand ON global_products(brand_name);
 CREATE INDEX idx_global_products_barcode ON global_products(barcode) WHERE barcode IS NOT NULL;
@@ -287,12 +286,9 @@ CREATE TABLE inventory_batches (
     -- Expiry & Shelf Life
     manufacture_date DATE,
     expiry_date DATE,
-    days_until_expiry INTEGER GENERATED ALWAYS AS (
-        CASE WHEN expiry_date IS NOT NULL 
-            THEN expiry_date - CURRENT_DATE 
-            ELSE NULL 
-        END
-    ) STORED,
+    -- Maintained by application writes; CURRENT_DATE cannot be used in a
+    -- PostgreSQL generated column because it is not immutable.
+    days_until_expiry INTEGER,
     
     -- Supplier Information (for traceability)
     supplier_name VARCHAR(255), -- Denormalized for performance
@@ -328,8 +324,9 @@ CREATE INDEX idx_inventory_batches_expiry ON inventory_batches(pharmacy_product_
 CREATE INDEX idx_inventory_batches_batch_number ON inventory_batches(batch_number);
 CREATE INDEX idx_inventory_batches_low_qty ON inventory_batches(pharmacy_product_id, quantity) 
     WHERE quantity <= 10; -- Fast low-stock lookup
-CREATE INDEX idx_inventory_batches_expiring_soon ON inventory_batches(branch_id, expiry_date)
-    WHERE expiry_date IS NOT NULL AND expiry_date <= CURRENT_DATE + INTERVAL '90 days';
+-- CURRENT_DATE is not immutable, so the rolling expiry window is evaluated
+-- by queries rather than encoded in a partial index.
+CREATE INDEX idx_inventory_batches_expiring_soon ON inventory_batches(branch_id, expiry_date);
 
 -- RLS for inventory batches
 ALTER TABLE inventory_batches ENABLE ROW LEVEL SECURITY;

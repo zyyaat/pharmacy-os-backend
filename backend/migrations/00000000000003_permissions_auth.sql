@@ -33,7 +33,7 @@ CREATE TABLE permissions (
     
     -- Constraints
     CONSTRAINT permissions_valid_key_format CHECK (
-        key ~ '^[a-z]+\.[a-z_]+$' -- Format: module.action (e.g., employees.view)
+        key ~ '^[a-z]+(\.[a-z_]+)+$' -- Format: module.action or module.area.action
     )
 );
 
@@ -272,17 +272,16 @@ CREATE TABLE employee_permissions (
     revocation_reason TEXT,
     
     -- Status
-    is_active BOOLEAN DEFAULT true GENERATED ALWAYS AS (revoked_at IS NULL) STORED,
+    is_active BOOLEAN GENERATED ALWAYS AS (revoked_at IS NULL) STORED,
     
     -- Metadata
-    notes TEXT, -- Why was this granted? (for audit trail)
-    
-    -- Constraints
-    CONSTRAINT employee_permissions_unique_active UNIQUE (employee_id, permission_id) 
-        WHERE revoked_at IS NULL -- Only one active grant per employee per permission
+    notes TEXT -- Why was this granted? (for audit trail)
 );
 
 -- Indexes for employee_permissions (CRITICAL for performance)
+CREATE UNIQUE INDEX idx_employee_permissions_unique_active
+    ON employee_permissions(employee_id, permission_id)
+    WHERE revoked_at IS NULL;
 CREATE INDEX idx_employee_permissions_employee ON employee_permissions(employee_id) WHERE is_active = true;
 CREATE INDEX idx_employee_permissions_permission ON employee_permissions(permission_id) WHERE is_active = true;
 CREATE INDEX idx_employee_permissions_employee_active ON employee_permissions(employee_id, is_active) WHERE is_active = true;
