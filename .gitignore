@@ -1,5 +1,8 @@
 # Binaries
 /server
+/pharmacy-api
+/backend/server
+/backend/pharmacy-api
 /out
 *.exe
 *.exe~

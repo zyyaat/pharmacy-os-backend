@@ -1,24 +1,31 @@
-# Backend setup
+# Pharmacy OS monorepo
 
-This repository is a Go 1.25 Gin API. The Replit workflow runs:
+This repository contains the Pharmacy OS frontend and backend:
+
+- `frontend/` — the existing Next.js 16 / React 19 app, kept unchanged for its Vercel deployment.
+- `backend/` — the Go 1.25 Gin API and its migrations.
+
+## Backend setup
+
+The Replit workflow runs:
 
 ```bash
-go run ./cmd/server
+cd backend && go run ./cmd/server
 ```
 
 Production publishing builds and runs a non-ignored binary:
 
 ```bash
-go build -o pharmacy-api ./cmd/server
+cd backend && go build -o ../pharmacy-api ./cmd/server
 ./pharmacy-api
 ```
 
-The API listens on port `8080` by default. Health checks:
+The backend API listens on port `8080` by default. Health checks:
 
 - `GET /health`
 - `GET /api/v1/health`
 
-For the full application, configure these environment variables in Replit Secrets:
+For the backend, configure these environment variables in Replit Secrets:
 
 - `DATABASE_URL` — PostgreSQL/Supabase connection string (the Replit runtime manages its own `DATABASE_URL`; replace it only when using an external database connection).
 - `SUPABASE_URL` — Supabase project URL.
@@ -32,3 +39,7 @@ https://your-frontend.vercel.app
 ```
 
 Dependencies are installed with `go mod download`; use `go build ./cmd/server` to verify the server build.
+
+## Frontend
+
+The frontend remains independently deployable from `frontend/` on Vercel. Its existing `package.json`, environment template, and Next.js configuration are intentionally unchanged.

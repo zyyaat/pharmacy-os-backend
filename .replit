@@ -8,8 +8,8 @@ expertMode = true
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["sh", "-c", "CGO_ENABLED=0 go build -mod=vendor -o /tmp/pharmacy-api ./cmd/server && exec /tmp/pharmacy-api"]
-build = ["sh", "-c", "CGO_ENABLED=0 go build -mod=vendor -o pharmacy-api ./cmd/server"]
+run = ["sh", "-c", "cd backend && CGO_ENABLED=0 go build -mod=vendor -o /tmp/pharmacy-api ./cmd/server && exec /tmp/pharmacy-api"]
+build = ["sh", "-c", "cd backend && CGO_ENABLED=0 go build -mod=vendor -o ../pharmacy-api ./cmd/server"]
 
 [workflows]
 runButton = "Project"
@@ -29,7 +29,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "go run ./cmd/server"
+args = "cd backend && go run ./cmd/server"
 waitForPort = 8080
 
 [workflows.workflow.metadata]
