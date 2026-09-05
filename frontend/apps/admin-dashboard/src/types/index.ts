@@ -2,6 +2,7 @@
 export interface CompanyUser {
   id: string;
   email: string;
+  account_type?: "company_user" | "employee";
   displayName: string;
   role: "super_admin" | "company_admin" | "company_manager" | "viewer";
   companyId?: string;
