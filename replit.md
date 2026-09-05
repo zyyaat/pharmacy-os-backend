@@ -16,6 +16,9 @@ Each frontend has its own independent workflow. The selected Run workflow is
 while `Backend API` provides the shared Go API:
 
 ```bash
+cd frontend/apps/admin-dashboard && npm ci
+cd frontend/apps/pharmacy-app && npm ci
+cd frontend/apps/marketing && npm ci
 cd backend && GOSUMDB=sum.golang.org go run ./cmd/server
 cd frontend/apps/admin-dashboard && NEXT_PUBLIC_API_URL=/api/v1 npx next dev -p 5000
 ```
