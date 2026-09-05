@@ -356,6 +356,24 @@ func (s *Service) RegisterCompany(ctx context.Context, companyName, companyEmail
 	`, companyID, normalizeEmail(email), string(hash), strings.TrimSpace(firstName), strings.TrimSpace(lastName)).Scan(&userID); err != nil {
 		return nil, fmt.Errorf("create company owner: %w", err)
 	}
+
+	// The central registration flow must provision the same minimum company
+	// permissions as the legacy registration handler. Do this before commit so
+	// a newly verified owner can immediately use the authenticated API.
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO company_user_permissions (company_user_id, permission_id, granted_by, notes)
+		SELECT $1, p.id, $1, 'Initial company owner permissions'
+		FROM permissions p
+		WHERE p.key = ANY($2::text[])
+		ON CONFLICT (company_user_id, permission_id)
+		DO UPDATE SET is_active = true, revoked_at = NULL, revocation_reason = NULL
+	`, userID, []string{
+		"companies.view", "companies.update",
+		"company_users.view", "company_users.create", "company_users.update",
+		"accounts.view", "accounts.create", "accounts.update",
+	}); err != nil {
+		return nil, fmt.Errorf("grant initial company permissions: %w", err)
+	}
 	if err := tx.Commit(ctx); err != nil {
 		return nil, err
 	}

@@ -27,6 +27,8 @@ export interface Company {
   id: string;
   name: string;
   nameEn?: string;
+  email: string;
+  phone?: string;
   status: "active" | "suspended" | "trial" | "cancelled";
   plan: "free" | "starter" | "professional" | "enterprise" | "custom";
   logoUrl?: string;

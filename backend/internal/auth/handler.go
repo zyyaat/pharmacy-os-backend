@@ -20,6 +20,13 @@ func NewHandler(db *pgxpool.Pool, cfg Config) *Handler {
 	return &Handler{service: NewService(db, cfg), mailer: newMailer(cfg)}
 }
 
+// Middleware authenticates requests with the same opaque session service used
+// by the auth endpoints. Keeping this adapter on Handler prevents other
+// packages from reaching into the service implementation.
+func (h *Handler) Middleware() gin.HandlerFunc {
+	return h.service.Middleware()
+}
+
 type loginRequest struct {
 	Email       string `json:"email" binding:"required,email"`
 	Password    string `json:"password" binding:"required"`

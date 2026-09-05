@@ -1,5 +1,6 @@
-// Auth Hook - Real Implementation
-import { useState, useEffect, useCallback } from 'react'
+'use client'
+
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from 'react'
 import { authApi } from '@/lib/api'
 import type { CompanyUser, LoginCredentials, AuthResponse } from '@/types'
 
@@ -12,7 +13,9 @@ interface UseAuthReturn {
   refetch: () => Promise<void>
 }
 
-export function useAuth(): UseAuthReturn {
+const AuthContext = createContext<UseAuthReturn | null>(null)
+
+export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<CompanyUser | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -21,11 +24,9 @@ export function useAuth(): UseAuthReturn {
     try {
       setLoading(true)
       setError(null)
-      
       const profile = await authApi.getProfile()
       setUser(profile)
-    } catch (err) {
-      // No authenticated user - this is okay
+    } catch {
       setUser(null)
     } finally {
       setLoading(false)
@@ -33,14 +34,13 @@ export function useAuth(): UseAuthReturn {
   }, [])
 
   useEffect(() => {
-    fetchUser()
+    void fetchUser()
   }, [fetchUser])
 
   const login = async (credentials: LoginCredentials): Promise<AuthResponse> => {
     try {
       setLoading(true)
       setError(null)
-
       const response = await authApi.login(credentials.email, credentials.password)
       setUser(response.user)
       return response
@@ -56,14 +56,12 @@ export function useAuth(): UseAuthReturn {
   const logout = async () => {
     try {
       await authApi.logout()
-    } catch (err) {
-      console.error('Logout error:', err)
     } finally {
       setUser(null)
     }
   }
 
-  return {
+  const value: UseAuthReturn = {
     user,
     loading,
     error,
@@ -71,4 +69,14 @@ export function useAuth(): UseAuthReturn {
     logout,
     refetch: fetchUser,
   }
+
+  return <AuthContext.Provider value={value}>{children}</AuthContext.Provider>
+}
+
+export function useAuth(): UseAuthReturn {
+  const context = useContext(AuthContext)
+  if (!context) {
+    throw new Error('useAuth must be used inside AuthProvider')
+  }
+  return context
 }

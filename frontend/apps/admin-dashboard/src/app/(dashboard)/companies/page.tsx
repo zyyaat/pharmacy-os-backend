@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useMemo, useState } from "react";
 import {
   Search,
   Plus,
@@ -22,9 +22,9 @@ import { Button } from "@/components/ui";
 import { Input } from "@/components/ui";
 import { Badge } from "@/components/ui";
 import { COMPANY_STATUS_LABELS, COMPANY_PLAN_LABELS, type CompanyStatus, type CompanyPlan } from "@/lib/utils";
+import { companiesApi } from "@/lib/api";
 
-// Mock Data
-const mockCompanies: Array<{
+type CompanyRow = {
   id: string;
   name: string;
   nameEn?: string;
@@ -35,72 +35,7 @@ const mockCompanies: Array<{
   createdAt: string;
   email: string;
   phone?: string;
-}> = [
-  {
-    id: "1",
-    name: "صيدليات الأمل",
-    nameEn: "Hope Pharmacies",
-    status: "active",
-    plan: "professional",
-    maxUsers: 20,
-    currentUsersCount: 12,
-    createdAt: "2024-01-15",
-    email: "info@hope-pharma.com",
-    phone: "+966 50 123 4567",
-  },
-  {
-    id: "2",
-    name: "مجموعة النور الطبية",
-    nameEn: "Al-Noor Medical Group",
-    status: "active",
-    plan: "enterprise",
-    maxUsers: 100,
-    currentUsersCount: 45,
-    createdAt: "2024-01-12",
-    email: "contact@alnoor-med.com",
-  },
-  {
-    id: "3",
-    name: "صيدلية الوفاء",
-    status: "trial",
-    plan: "starter",
-    maxUsers: 5,
-    currentUsersCount: 3,
-    createdAt: "2024-01-10",
-    email: "alwafa@pharmacy.com",
-  },
-  {
-    id: "4",
-    name: "شركة الرحمة",
-    status: "suspended",
-    plan: "professional",
-    maxUsers: 25,
-    currentUsersCount: 8,
-    createdAt: "2024-01-08",
-    email: "info@rahma-co.com",
-  },
-  {
-    id: "5",
-    name: "صيدليات الشفاء",
-    nameEn: "Shifa Pharmacies",
-    status: "active",
-    plan: "professional",
-    maxUsers: 30,
-    currentUsersCount: 18,
-    createdAt: "2024-01-05",
-    email: "hello@shifa-pharma.com",
-  },
-  {
-    id: "6",
-    name: "مؤسسة الصحة",
-    status: "active",
-    plan: "enterprise",
-    maxUsers: 200,
-    currentUsersCount: 156,
-    createdAt: "2024-01-01",
-    email: "admin@al-seha.org",
-  },
-];
+};
 
 const statusVariants: Record<CompanyStatus, "default" | "secondary" | "destructive" | "success" | "warning" | "outline"> = {
   active: "success",
@@ -118,11 +53,41 @@ const planBadgeVariants: Record<CompanyPlan, "default" | "secondary" | "outline"
 };
 
 export default function CompaniesPage() {
+  const [companies, setCompanies] = useState<CompanyRow[]>([]);
+  const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState("");
   const [statusFilter, setStatusFilter] = useState<string>("all");
   const [selectedCompanies, setSelectedCompanies] = useState<string[]>([]);
 
-  const filteredCompanies = mockCompanies.filter((company) => {
+  useEffect(() => {
+    let cancelled = false;
+    companiesApi.list({ page: 1, limit: 100 })
+      .then((response) => {
+        if (cancelled) return;
+        setCompanies(response.data.map((company) => ({
+          id: company.id,
+          name: company.name,
+          nameEn: company.nameEn,
+          status: company.status,
+          plan: company.plan,
+          maxUsers: company.maxUsers,
+          currentUsersCount: company.currentUsersCount,
+          createdAt: company.createdAt,
+          email: company.email || "",
+          phone: company.phone,
+        })));
+      })
+      .catch((err) => {
+        if (!cancelled) setError(err instanceof Error ? err.message : "تعذر تحميل الشركات");
+      })
+      .finally(() => {
+        if (!cancelled) setLoading(false);
+      });
+    return () => { cancelled = true; };
+  }, []);
+
+  const filteredCompanies = useMemo(() => companies.filter((company) => {
     const matchesSearch =
       company.name.includes(searchQuery) ||
       company.nameEn?.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -131,7 +96,7 @@ export default function CompaniesPage() {
     const matchesStatus = statusFilter === "all" || company.status === statusFilter;
     
     return matchesSearch && matchesStatus;
-  });
+  }), [companies, searchQuery, statusFilter]);
 
   const toggleSelectAll = () => {
     if (selectedCompanies.length === filteredCompanies.length) {
@@ -171,7 +136,7 @@ export default function CompaniesPage() {
               <Building2 className="h-5 w-5" />
             </div>
             <div>
-              <p className="text-2xl font-bold">{mockCompanies.length}</p>
+               <p className="text-2xl font-bold">{companies.length}</p>
               <p className="text-sm text-muted-foreground">إجمالي الشركات</p>
             </div>
           </CardContent>
@@ -183,7 +148,7 @@ export default function CompaniesPage() {
             </div>
             <div>
               <p className="text-2xl font-bold">
-                {mockCompanies.filter((c) => c.status === "active").length}
+                 {companies.filter((c) => c.status === "active").length}
               </p>
               <p className="text-sm text-muted-foreground">شركات نشطة</p>
             </div>
@@ -196,7 +161,7 @@ export default function CompaniesPage() {
             </div>
             <div>
               <p className="text-2xl font-bold">
-                {mockCompanies.filter((c) => c.status === "trial").length}
+                 {companies.filter((c) => c.status === "trial").length}
               </p>
               <p className="text-sm text-muted-foreground">في الفترة التجريبية</p>
             </div>
@@ -209,7 +174,7 @@ export default function CompaniesPage() {
             </div>
             <div>
               <p className="text-2xl font-bold">
-                {mockCompanies.filter((c) => c.status === "suspended").length}
+                 {companies.filter((c) => c.status === "suspended").length}
               </p>
               <p className="text-sm text-muted-foreground">شركات موقوفة</p>
             </div>
@@ -255,6 +220,8 @@ export default function CompaniesPage() {
       {/* Companies Table */}
       <Card>
         <CardContent className="p-0">
+          {loading && <div className="p-12 text-center text-muted-foreground">جاري تحميل الشركات...</div>}
+          {error && !loading && <div className="p-12 text-center text-destructive">{error}</div>}
           <div className="overflow-x-auto">
             <table className="w-full">
               <thead>
@@ -352,7 +319,7 @@ export default function CompaniesPage() {
           </div>
 
           {/* Empty State */}
-          {filteredCompanies.length === 0 && (
+          {!loading && !error && filteredCompanies.length === 0 && (
             <div className="text-center py-12">
               <Building2 className="h-12 w-12 mx-auto text-muted-foreground mb-4" />
               <h3 className="text-lg font-medium mb-2">لا توجد شركات</h3>
@@ -366,10 +333,10 @@ export default function CompaniesPage() {
           )}
 
           {/* Pagination */}
-          {filteredCompanies.length > 0 && (
+           {!loading && !error && filteredCompanies.length > 0 && (
             <div className="flex items-center justify-between p-4 border-t border-border">
               <p className="text-sm text-muted-foreground">
-                عرض {filteredCompanies.length} من {mockCompanies.length} شركة
+                 عرض {filteredCompanies.length} من {companies.length} شركة
               </p>
               <div className="flex items-center gap-2">
                 <Button variant="outline" size="icon" disabled>

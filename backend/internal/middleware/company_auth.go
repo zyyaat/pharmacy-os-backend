@@ -27,7 +27,7 @@ type CompanyClaims struct {
 	UserID            string `json:"user_id"`
 	Email             string `json:"email"`
 	CompanyID         string `json:"company_id"`
-	Role              string `json:"role"`              // super_admin, company_admin, etc.
+	Role              string `json:"role"`               // super_admin, company_admin, etc.
 	PermissionVersion int    `json:"permission_version"` // For cache invalidation
 	IsSuperAdmin      bool   `json:"is_super_admin"`
 
@@ -40,20 +40,20 @@ type CompanyClaims struct {
 
 // CompanyAuthConfig holds configuration for company authentication
 type CompanyAuthConfig struct {
-	JWTSecret          string        // Secret key for signing JWTs
-	JWTExpiry          time.Duration // How long tokens are valid (default: 24h)
-	BcryptCost        int           // Bcrypt cost factor (default: 12)
-	MaxLoginAttempts  int           // Max failed attempts before lockout (default: 5)
-	LockoutDuration   time.Duration // How long to lock account (default: 30min)
-	TokenLookup       string        // Where to find token (default: "header:Authorization")
-	TimeSkew          time.Duration // Allowed clock skew (default: 30s)
+	JWTSecret        string        // Secret key for signing JWTs
+	JWTExpiry        time.Duration // How long tokens are valid (default: 24h)
+	BcryptCost       int           // Bcrypt cost factor (default: 12)
+	MaxLoginAttempts int           // Max failed attempts before lockout (default: 5)
+	LockoutDuration  time.Duration // How long to lock account (default: 30min)
+	TokenLookup      string        // Where to find token (default: "header:Authorization")
+	TimeSkew         time.Duration // Allowed clock skew (default: 30s)
 }
 
 // DefaultCompanyAuthConfig returns default company auth configuration
 func DefaultCompanyAuthConfig(jwtSecret string) *CompanyAuthConfig {
 	return &CompanyAuthConfig{
-		JWTSecret:         jwtSecret,
-		JWTExpiry:         24 * time.Hour,
+		JWTSecret:        jwtSecret,
+		JWTExpiry:        24 * time.Hour,
 		BcryptCost:       12,
 		MaxLoginAttempts: 5,
 		LockoutDuration:  30 * time.Minute,
@@ -69,13 +69,13 @@ func DefaultCompanyAuthConfig(jwtSecret string) *CompanyAuthConfig {
 type companyContextKey string
 
 const (
-	CompanyUserIDKey     companyContextKey = "company_user_id"
-	CompanyUserEmailKey  companyContextKey = "company_user_email"
-	CompanyIDKey         companyContextKey = "company_id"
-	CompanyRoleKey       companyContextKey = "company_role"
-	CompanyIsSuperAdmin  companyContextKey = "company_is_super_admin"
-	CompanyPermVersion   companyContextKey = "company_permission_version"
-	CompanyClaimsKey     companyContextKey = "company_jwt_claims"
+	CompanyUserIDKey    companyContextKey = "company_user_id"
+	CompanyUserEmailKey companyContextKey = "company_user_email"
+	CompanyIDKey        companyContextKey = "company_id"
+	CompanyRoleKey      companyContextKey = "company_role"
+	CompanyIsSuperAdmin companyContextKey = "company_is_super_admin"
+	CompanyPermVersion  companyContextKey = "company_permission_version"
+	CompanyClaimsKey    companyContextKey = "company_jwt_claims"
 )
 
 // ============================================
@@ -292,6 +292,12 @@ func GenerateCompanyToken(userID, email, companyID, role string, permissionVersi
 	return signedToken, nil
 }
 
+// ValidateCompanyToken exposes token validation to integration tests and
+// trusted internal callers without duplicating JWT parsing logic.
+func ValidateCompanyToken(tokenString string, config *CompanyAuthConfig) (*CompanyClaims, error) {
+	return validateCompanyToken(tokenString, config)
+}
+
 // ============================================
 // Context Setting Helpers
 // ============================================
@@ -390,7 +396,7 @@ func GetCompanyJWTClaims(c *gin.Context) (*CompanyClaims, bool) {
 	if !exists {
 		return nil, false
 	}
-	
+
 	jwtClaims, ok := claims.(*CompanyClaims)
 	return jwtClaims, ok
 }
@@ -456,15 +462,15 @@ type CompanyAuthResponse struct {
 
 // CompanyUserInfo represents basic company user info in responses
 type CompanyUserInfo struct {
-	ID           string `json:"id"`
-	Email        string `json:"email"`
-	FirstName    string `json:"first_name"`
-	LastName     string `json:"last_name"`
-	DisplayName  string `json:"display_name,omitempty"`
-	AvatarURL    string `json:"avatar_url,omitempty"`
-	Role         string `json:"role"`
-	CompanyID    string `json:"company_id"`
-	CompanyName  string `json:"company_name"`
+	ID          string `json:"id"`
+	Email       string `json:"email"`
+	FirstName   string `json:"first_name"`
+	LastName    string `json:"last_name"`
+	DisplayName string `json:"display_name,omitempty"`
+	AvatarURL   string `json:"avatar_url,omitempty"`
+	Role        string `json:"role"`
+	CompanyID   string `json:"company_id"`
+	CompanyName string `json:"company_name"`
 }
 
 // TokenRefreshResponse represents token refresh response

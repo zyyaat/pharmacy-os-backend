@@ -7,13 +7,15 @@ import (
 	"github.com/pharmacy-os/backend/internal/auth"
 	"github.com/pharmacy-os/backend/internal/config"
 	appmiddleware "github.com/pharmacy-os/backend/internal/middleware"
+	"github.com/pharmacy-os/backend/internal/repository"
 )
 
 // Handler holds all dependencies for HTTP handlers
 type Handler struct {
-	config *config.Config
-	db     *pgxpool.Pool
-	auth   *auth.Handler
+	config  *config.Config
+	db      *pgxpool.Pool
+	auth    *auth.Handler
+	company *CompanyHandler
 }
 
 // New creates a new Handler instance
@@ -31,6 +33,12 @@ func New(cfg *config.Config, db ...*pgxpool.Pool) *Handler {
 			MailFromName:  cfg.MailFromName,
 			PublicAppURL:  cfg.PublicAppURL,
 		})
+		h.company = NewCompanyHandler(
+			repository.NewCompanyRepository(db[0]),
+			repository.NewCompanyUserRepository(db[0]),
+			repository.NewCompanyUserPermissionRepository(db[0]),
+			nil,
+		)
 	}
 	return h
 }
@@ -52,6 +60,23 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 
 	if h.auth != nil {
 		h.auth.RegisterRoutes(v1)
+	}
+
+	// Domain routes use the central opaque session created by /auth/login.
+	// The legacy company JWT middleware is intentionally not registered.
+	if h.company != nil {
+		company := v1.Group("/companies")
+		company.Use(h.auth.Middleware())
+		company.Use(appmiddleware.CompanySessionContext())
+		company.Use(appmiddleware.CompanyDBPoolContext(h.db))
+		company.Use(appmiddleware.RequireCompanyPermission("companies.view"))
+
+		company.GET("", h.company.ListCompanies)
+		company.GET("/:id", h.company.GetCompany)
+		company.GET("/:id/summary", h.company.GetCompanySummary)
+		company.PUT("/:id", appmiddleware.RequireCompanyPermission("companies.update"), h.company.UpdateCompany)
+		company.PATCH("/:id/status", appmiddleware.RequireCompanyPermission("companies.update"), h.company.UpdateCompanyStatus)
+		company.DELETE("/:id", appmiddleware.RequireCompanyPermission("companies.delete"), h.company.DeleteCompany)
 	}
 }
 

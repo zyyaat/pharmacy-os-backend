@@ -278,10 +278,24 @@ The active route registration is in:
 backend/internal/handlers/handler.go
 ```
 
-The currently registered routes are health endpoints and the auth routes
-provided by `internal/auth`. Domain handler files exist for companies,
-pharmacies, inventory, employees, branches, attendance, and dashboard, but
-their availability must be verified in `SetupRoutes` before calling them live.
+The currently registered routes are health endpoints, the auth routes provided
+by `internal/auth`, and the protected company-management slice:
+
+```text
+GET    /api/v1/companies
+GET    /api/v1/companies/:id
+GET    /api/v1/companies/:id/summary
+PUT    /api/v1/companies/:id
+PATCH  /api/v1/companies/:id/status
+DELETE /api/v1/companies/:id
+```
+
+These routes use the same opaque session middleware as `/auth/me`, adapt the
+authenticated principal into company permission context, and never register
+the legacy company JWT middleware. Non-super-admin users are scoped to their
+own company. Domain handler files still exist for pharmacies, inventory,
+employees, branches, attendance, and dashboard, but their availability must
+be verified in `SetupRoutes` before calling them live.
 
 The frontend API clients already reference paths such as:
 
@@ -356,6 +370,11 @@ The authentication middleware:
 3. Looks up a non-revoked, non-expired session.
 4. Loads the principal from the appropriate table.
 5. Places identity fields in request context.
+
+The Next.js clients hydrate their user from `/auth/me` in a shared
+`AuthProvider`, guard dashboard route groups, and retry one protected request
+after a successful `/auth/refresh`. They must continue to use
+`credentials: include`; no browser token storage is part of this contract.
 
 The current session table stores token hashes, expiry timestamps, principal
 type/id, user-agent, IP, revocation, and refresh-family information. Refresh

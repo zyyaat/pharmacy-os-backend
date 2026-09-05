@@ -1,14 +1,38 @@
 // API Client for Backend (Go) - Real Implementation
 // This client connects to our Go backend for: CRUD operations, Admin tasks
 
-import type { Company, CompanyUser, DashboardStats, Account } from '@/types'
+import type { Company, CompanyUser, DashboardStats, Account, ActivityItem } from '@/types'
 
 const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || 'http://localhost:8080/api/v1'
+let refreshPromise: Promise<boolean> | null = null
 
 // Generic fetch wrapper with auth
+async function refreshSession(): Promise<boolean> {
+  if (!refreshPromise) {
+    refreshPromise = fetch(`${API_BASE_URL}/auth/refresh`, {
+      method: 'POST',
+      credentials: 'include',
+      headers: typeof document === 'undefined'
+        ? {}
+        : {
+            'X-CSRF-Token': decodeURIComponent(
+              document.cookie.match(/(?:^|; )pharmacy_csrf=([^;]+)/)?.[1] || ''
+            ),
+          },
+    })
+      .then((response) => response.ok)
+      .catch(() => false)
+      .finally(() => {
+        refreshPromise = null
+      })
+  }
+  return refreshPromise
+}
+
 async function apiFetch<T>(
   endpoint: string,
-  options: RequestInit = {}
+  options: RequestInit = {},
+  canRefresh = true
 ): Promise<T> {
   const url = `${API_BASE_URL}${endpoint}`
   
@@ -28,6 +52,10 @@ async function apiFetch<T>(
       headers,
       credentials: 'include',
     })
+
+    if (response.status === 401 && canRefresh && !endpoint.startsWith('/auth/')) {
+      if (await refreshSession()) return apiFetch<T>(endpoint, options, false)
+    }
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: 'Request failed' }))
@@ -89,14 +117,46 @@ export const companiesApi = {
   async list(params?: { page?: number; limit?: number; search?: string; status?: string }) {
     const queryParams = new URLSearchParams()
     if (params?.page) queryParams.set('page', String(params.page))
-    if (params?.limit) queryParams.set('limit', String(params.limit))
+    if (params?.limit) queryParams.set('page_size', String(params.limit))
     if (params?.search) queryParams.set('search', params.search)
     if (params?.status) queryParams.set('status', params.status)
 
     const query = queryParams.toString()
-    return apiFetch<{ data: Company[]; total: number; page: number; limit: number }>(
-      `/companies${query ? `?${query}` : ''}`
-    )
+    const response = await apiFetch<{
+      data: Array<{
+        id: string
+        name: string
+        name_ar?: string
+        email: string
+        phone?: string
+        status: Company['status']
+        plan: Company['plan']
+        max_accounts: number
+        max_users_per_account: number
+        created_at: string
+        total_users?: number
+      }>
+      pagination: { total: number; page: number; page_size: number; total_pages: number }
+    }>(`/companies${query ? `?${query}` : ''}`)
+
+    return {
+      data: response.data.map((company) => ({
+        id: company.id,
+        name: company.name_ar || company.name,
+        nameEn: company.name_ar ? company.name : undefined,
+        email: company.email,
+        phone: company.phone,
+        status: company.status,
+        plan: company.plan,
+        maxUsers: company.max_users_per_account,
+        currentUsersCount: company.total_users || 0,
+        createdAt: company.created_at,
+        updatedAt: company.created_at,
+      })),
+      total: response.pagination.total,
+      page: response.pagination.page,
+      limit: response.pagination.page_size,
+    }
   },
 
   async getById(id: string) {
@@ -198,7 +258,7 @@ export const dashboardApi = {
   },
 
   async getRecentActivity(limit = 10) {
-    return apiFetch<{ data: DashboardStats['activity'] }>(`/dashboard/activity?limit=${limit}`)
+    return apiFetch<{ data: ActivityItem[] }>(`/dashboard/activity?limit=${limit}`)
   },
 }
 
