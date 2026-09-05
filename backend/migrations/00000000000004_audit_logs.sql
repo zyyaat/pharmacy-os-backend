@@ -72,9 +72,8 @@ CREATE INDEX idx_audit_logs_actor ON audit_logs(actor_id) WHERE actor_id IS NOT 
 CREATE INDEX idx_audit_logs_pharmacy_date ON audit_logs(pharmacy_id, created_at DESC);
 CREATE INDEX idx_audit_logs_pharmacy_action ON audit_logs(pharmacy_id, action, created_at DESC);
 
--- Index for compliance/audit trails (filter by date range)
-CREATE INDEX idx_audit_logs_date_range ON audit_logs(created_at) 
-    WHERE created_at > NOW() - INTERVAL '90 days'; -- Partial index for recent logs
+-- The regular created_at index above supports date-range filtering.
+-- A partial index based on NOW() would be invalid because NOW() is not immutable.
 
 -- RLS for audit_logs - Critical for tenant isolation
 ALTER TABLE audit_logs ENABLE ROW LEVEL SECURITY;
@@ -151,6 +150,8 @@ $$ LANGUAGE plpgsql SECURITY DEFINER;
 --              Non-partitioned design (partitioning will be added when needed >5M records)
 --              Optimized for current scale with proper indexes
 -- ============================================
+CREATE EXTENSION IF NOT EXISTS btree_gist;
+
 CREATE TABLE attendance_records (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     
@@ -195,7 +196,7 @@ CREATE TABLE attendance_records (
     -- Constraints
     CONSTRAINT no_overlapping_attendance EXCLUDE USING GIST (
         employee_id WITH =,
-        tsrange(clock_in, COALESCE(clock_out, NOW())) WITH &&
+        tstzrange(clock_in, COALESCE(clock_out, 'infinity'::timestamptz)) WITH &&
     )
 );
 
@@ -209,8 +210,7 @@ CREATE INDEX idx_attendance_pharmacy_id ON attendance_records(pharmacy_id);
 CREATE INDEX idx_attendance_clock_in ON attendance_records(clock_in DESC);
 CREATE INDEX idx_attendance_clock_out ON attendance_records(clock_out) WHERE clock_out IS NOT NULL;
 CREATE INDEX idx_attendance_status ON attendance_records(status);
-CREATE INDEX idx_attendance_date_range ON attendance_records(clock_in) 
-    WHERE clock_in >= CURRENT_DATE - INTERVAL '30 days'; -- Recent records (partial index)
+-- The regular clock_in index above supports date-range filtering.
 
 -- Composite indexes for reporting
 CREATE INDEX idx_attendance_employee_date ON attendance_records(employee_id, clock_in DESC);
@@ -218,8 +218,10 @@ CREATE INDEX idx_attendance_branch_date ON attendance_records(branch_id, clock_i
 CREATE INDEX idx_attendance_pharmacy_date ON attendance_records(pharmacy_id, clock_in DESC);
 
 -- Index for finding missed clock-outs (employees who clocked in but not out)
-CREATE INDEX idx_attendance_missed_clockouts ON attendance_records(employee_id, status) 
-    WHERE status = 'active' AND clock_in < NOW() - INTERVAL '8 hours';
+-- NOW() is not immutable, so this cannot be a partial index. The composite
+-- status/clock_in index supports the same lookup without a time-dependent
+-- predicate.
+CREATE INDEX idx_attendance_status_clock_in ON attendance_records(status, clock_in);
 
 -- RLS for attendance_records
 ALTER TABLE attendance_records ENABLE ROW LEVEL SECURITY;

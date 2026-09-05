@@ -68,7 +68,7 @@ CREATE TABLE companies (
     
     -- Soft delete
     deleted_at TIMESTAMPTZ,
-    is_active BOOLEAN DEFAULT true GENERATED ALWAYS AS (deleted_at IS NULL) STORED
+    is_active BOOLEAN GENERATED ALWAYS AS (deleted_at IS NULL) STORED
 );
 
 -- Indexes for companies
@@ -192,17 +192,18 @@ CREATE TABLE company_user_permissions (
     revocation_reason TEXT,
     
     -- Status
-    is_active BOOLEAN DEFAULT true GENERATED ALWAYS AS (revoked_at IS NULL) STORED,
+    is_active BOOLEAN GENERATED ALWAYS AS (revoked_at IS NULL) STORED,
     
     -- Metadata
-    notes TEXT,
+    notes TEXT
     
-    -- Constraints
-    CONSTRAINT company_user_perms_unique_active UNIQUE (company_user_id, permission_id) 
-        WHERE revoked_at IS NULL
+    -- Active rows are kept unique by the partial unique index below.
 );
 
 -- Indexes for company_user_permissions
+CREATE UNIQUE INDEX company_user_perms_unique_active
+    ON company_user_permissions(company_user_id, permission_id)
+    WHERE revoked_at IS NULL;
 CREATE INDEX idx_company_user_perms_user ON company_user_permissions(company_user_id) WHERE is_active = true;
 CREATE INDEX idx_company_user_perms_permission ON company_user_permissions(permission_id) WHERE is_active = true;
 CREATE INDEX idx_company_user_perms_granted_by ON company_user_permissions(granted_by);
@@ -229,7 +230,7 @@ ADD COLUMN IF NOT EXISTS company_id UUID REFERENCES companies(id) ON DELETE SET 
 
 -- Update existing accounts to link to a default company (migration helper)
 -- This allows existing data to work during transition
-COMMENT ON accounts.company_id IS 'Link to holding company. NULL for legacy/migrated accounts.';
+COMMENT ON COLUMN accounts.company_id IS 'Link to holding company. NULL for legacy/migrated accounts.';
 
 -- Create index for company_id
 CREATE INDEX IF NOT EXISTS idx_accounts_company_id ON accounts(company_id) WHERE company_id IS NOT NULL;
