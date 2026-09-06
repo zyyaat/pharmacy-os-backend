@@ -124,10 +124,12 @@ SQL migration files are located in the [`migrations/`](migrations/) directory:
 3. `00000000000003_permissions_auth.sql` - Permissions & auth
 4. `00000000000004_audit_logs.sql` - Audit logging
 5. `00000000000005_holding_company.sql` - Multi-tenant support
+6. `00000000000006_go_auth.sql` - Go-owned sessions and email tokens
+7. `00000000000007_inventory_idempotency.sql` - Retry-safe inventory mutations
 
-Apply the SQL migrations using your PostgreSQL provider. The
-`00000000000006_go_auth.sql` migration creates the Go-owned session and
-email-token tables.
+Apply the SQL migrations using your PostgreSQL provider in this order. The
+inventory adjustment endpoint also requires the idempotency column and unique
+index created by `00000000000007_inventory_idempotency.sql`.
 
 ## 🔐 Authentication
 

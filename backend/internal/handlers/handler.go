@@ -92,6 +92,7 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 		pharmacy.GET("/dashboard/stats", h.GetPharmacyDashboardStats)
 		pharmacy.GET("/dashboard/activity", h.GetPharmacyDashboardActivity)
 		pharmacy.GET("/inventory", h.GetPharmacyInventory)
+		pharmacy.POST("/inventory/:batch_id/adjust", auth.CSRF(), h.AdjustPharmacyInventory)
 		pharmacy.GET("/employees", h.ListPharmacyEmployees)
 		pharmacy.GET("/branches", h.ListPharmacyBranches)
 		pharmacy.GET("/attendance", h.ListPharmacyAttendance)

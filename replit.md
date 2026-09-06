@@ -39,7 +39,7 @@ root:
 cd backend && GOTOOLCHAIN=auto GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct GOFLAGS=-mod=vendor go run ./cmd/server
 ```
 
-The Replit-managed PostgreSQL database is connected automatically through `DATABASE_URL` and the `PG*` environment variables. The active development schema is created by migrations `00000000000001_foundation.sql` through `00000000000006_go_auth.sql`; `00000000000001_init.sql` is an older legacy schema and is not part of the active migration sequence.
+The Replit-managed PostgreSQL database is connected automatically through `DATABASE_URL` and the `PG*` environment variables. The active development schema is created by migrations `00000000000001_foundation.sql` through `00000000000007_inventory_idempotency.sql`; `00000000000001_init.sql` is an older legacy schema and is not part of the active migration sequence.
 
 The frontend workflows use separate local and external preview ports, so they do
 not overwrite one another:

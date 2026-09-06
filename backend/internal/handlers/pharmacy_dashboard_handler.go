@@ -1,11 +1,15 @@
 package handlers
 
 import (
+	"errors"
+	"math"
 	"net/http"
+	"strings"
 	"time"
 
 	"github.com/gin-gonic/gin"
 	"github.com/pharmacy-os/backend/internal/auth"
+	"github.com/pharmacy-os/backend/internal/repository"
 )
 
 // PharmacyDashboardStats is deliberately derived from the authenticated
@@ -162,6 +166,122 @@ func (h *Handler) GetPharmacyInventory(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"data": items})
+}
+
+type adjustInventoryRequest struct {
+	Delta  float64 `json:"delta"`
+	Reason string  `json:"reason"`
+}
+
+// AdjustPharmacyInventory is the first real inventory mutation endpoint.
+// It intentionally supports adjustments only; receiving, sales, and transfers
+// will get separate contracts so their business rules cannot be conflated.
+func (h *Handler) AdjustPharmacyInventory(c *gin.Context) {
+	principal, ok := auth.PrincipalFromContext(c)
+	if !ok || principal.Type != auth.EmployeePrincipal || principal.PharmacyID == "" {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error":   "employee_pharmacy_account_required",
+			"message": "An employee pharmacy account is required for inventory adjustments",
+		})
+		return
+	}
+
+	var request adjustInventoryRequest
+	if err := c.ShouldBindJSON(&request); err != nil ||
+		math.IsNaN(request.Delta) || math.IsInf(request.Delta, 0) ||
+		request.Delta == 0 || math.Abs(request.Delta) > 1000000000 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "invalid_inventory_adjustment",
+			"message": "delta must be a finite non-zero number within the allowed range",
+		})
+		return
+	}
+
+	idempotencyKey := strings.TrimSpace(c.GetHeader("Idempotency-Key"))
+	if len(idempotencyKey) < 8 || len(idempotencyKey) > 128 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error":   "idempotency_key_required",
+			"message": "Idempotency-Key must be between 8 and 128 characters",
+		})
+		return
+	}
+
+	var hasPermission bool
+	err := h.db.QueryRow(c.Request.Context(), `
+		SELECT EXISTS (
+			SELECT 1
+			FROM employee_permissions ep
+			JOIN permissions p ON p.id = ep.permission_id
+			WHERE ep.employee_id = $1
+			  AND p.key = 'inventory.adjust'
+			  AND ep.is_active = true
+			  AND ep.revoked_at IS NULL
+		)
+	`, principal.ID).Scan(&hasPermission)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error":   "permission_check_failed",
+			"message": "Could not verify inventory permission",
+		})
+		return
+	}
+	if !hasPermission {
+		c.JSON(http.StatusForbidden, gin.H{
+			"error":               "permission_denied",
+			"message":             "Inventory adjustment permission is required",
+			"required_permission": "inventory.adjust",
+		})
+		return
+	}
+
+	result, err := repository.NewStockMovementRepository(h.db).AdjustBatchStock(
+		c.Request.Context(),
+		repository.StockAdjustmentInput{
+			BatchID: idFromParam(c, "batch_id"), PharmacyID: principal.PharmacyID,
+			BranchID: principal.BranchID, EmployeeID: principal.ID,
+			Delta: request.Delta, IdempotencyKey: idempotencyKey,
+			Reason:    strings.TrimSpace(request.Reason),
+			IPAddress: c.ClientIP(), UserAgent: c.GetHeader("User-Agent"),
+		},
+	)
+	if err != nil {
+		switch {
+		case errors.Is(err, repository.ErrInventoryBatchNotFound):
+			c.JSON(http.StatusNotFound, gin.H{"error": "inventory_batch_not_found"})
+		case errors.Is(err, repository.ErrInventoryHistoryRequired):
+			c.JSON(http.StatusConflict, gin.H{
+				"error":   "inventory_history_required",
+				"message": "The batch must have an established stock movement history before it can be adjusted",
+			})
+		case errors.Is(err, repository.ErrInsufficientStock):
+			c.JSON(http.StatusConflict, gin.H{"error": "insufficient_stock"})
+		case errors.Is(err, repository.ErrIdempotencyConflict):
+			c.JSON(http.StatusConflict, gin.H{
+				"error":   "idempotency_key_conflict",
+				"message": "This Idempotency-Key was already used for a different adjustment",
+			})
+		default:
+			c.JSON(http.StatusInternalServerError, gin.H{
+				"error":   "inventory_adjustment_failed",
+				"message": "Could not apply inventory adjustment",
+			})
+		}
+		return
+	}
+
+	status := http.StatusOK
+	c.JSON(status, gin.H{
+		"data": gin.H{
+			"movement_id": result.MovementID, "batch_id": result.BatchID,
+			"unit": result.Unit, "previous_quantity": result.PreviousQuantity,
+			"new_quantity": result.NewQuantity, "created_at": result.CreatedAt.UTC(),
+			"replayed": result.Replayed,
+		},
+	})
+}
+
+func idFromParam(c *gin.Context, name string) string {
+	return strings.TrimSpace(c.Param(name))
 }
 
 func (h *Handler) lowStockItems(c *gin.Context, pharmacyID string) ([]map[string]interface{}, error) {
