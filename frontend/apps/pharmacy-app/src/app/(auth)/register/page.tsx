@@ -60,7 +60,10 @@ export default function RegisterPage() {
       })
       const body = await response.json().catch(() => ({}))
       if (!response.ok) throw new Error(body.message || 'تعذر إنشاء الحساب')
-      router.replace(`/verify-email?email=${encodeURIComponent(form.email.trim())}`)
+      const verificationSent = body.email_verification_sent !== false
+      router.replace(
+        `/verify-email?email=${encodeURIComponent(form.email.trim())}&sent=${verificationSent ? '1' : '0'}`,
+      )
     } catch (registrationError) {
       setError(registrationError instanceof Error ? registrationError.message : 'تعذر إنشاء الحساب')
       setLoading(false)

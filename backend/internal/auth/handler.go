@@ -107,22 +107,9 @@ func (h *Handler) register(c *gin.Context) {
 			emailSent = true
 		}
 	}
-	tokens, err := h.service.CreateSession(c.Request.Context(), principal, RequestMeta{
-		IPAddress: c.ClientIP(),
-		UserAgent: c.GetHeader("User-Agent"),
-	})
-	if err != nil {
-		writeError(c, http.StatusInternalServerError, "session_error", "Account created, but could not start a session")
-		return
-	}
-	if err := h.setAuthCookies(c, tokens); err != nil {
-		log.Printf("registration auth cookie setup failed: %v", err)
-		writeError(c, http.StatusInternalServerError, "session_error", "Account created, but could not start a session")
-		return
-	}
 	c.JSON(http.StatusCreated, gin.H{
 		"user":                        userPayload(principal),
-		"message":                     "Account created. You are signed in. Please verify your email to keep your account secure.",
+		"message":                     "Account created. Please verify your email before signing in.",
 		"email_verification_sent":     emailSent,
 		"email_verification_required": true,
 	})
@@ -283,7 +270,7 @@ func (h *Handler) resendVerification(c *gin.Context) {
 		}
 		if err := h.mailer.verificationEmail(c.Request.Context(), principal.Email, code); err != nil {
 			log.Printf("verification email failed for principal type %s: %v", principal.Type, err)
-			writeError(c, http.StatusServiceUnavailable, "email_service_unavailable", "Email service is not configured")
+			writeError(c, http.StatusServiceUnavailable, "email_delivery_failed", "تعذر إرسال رمز التحقق الآن. تحقق من إعداد البريد وحاول مرة أخرى")
 			return
 		}
 	}

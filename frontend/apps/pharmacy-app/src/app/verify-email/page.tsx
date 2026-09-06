@@ -14,8 +14,13 @@ export default function VerifyEmailPage() {
   const [sent, setSent] = useState(false)
 
   useEffect(() => {
-    const pendingEmail = new URLSearchParams(window.location.search).get('email')?.trim() || ''
+    const params = new URLSearchParams(window.location.search)
+    const pendingEmail = params.get('email')?.trim() || ''
     setEmail(pendingEmail)
+    if (params.get('sent') === '0') {
+      setError(true)
+      setMessage('تم إنشاء الحساب، لكن تعذر إرسال رمز التحقق. حاول إعادة الإرسال الآن.')
+    }
   }, [])
 
   async function verifyEmail(event: FormEvent<HTMLFormElement>) {

@@ -14,6 +14,7 @@ import {
 import { Button } from "@/components/ui";
 import { Input } from "@/components/ui";
 import { useAuth } from "@/hooks/useAuth";
+import { ApiError } from "@/lib/api";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
@@ -43,6 +44,10 @@ export default function LoginPage() {
       await login({ email: formData.email, password: formData.password });
       router.push("/");
     } catch (err) {
+      if (err instanceof ApiError && err.code === "EMAIL_NOT_VERIFIED") {
+        router.replace(`/verify-email?email=${encodeURIComponent(formData.email.trim())}`);
+        return;
+      }
       setError(err instanceof Error ? err.message : "فشل تسجيل الدخول");
     } finally {
       setIsLoading(false);

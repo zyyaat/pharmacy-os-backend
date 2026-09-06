@@ -6,6 +6,18 @@ import type { Company, CompanyUser, DashboardStats, Account, ActivityItem, Platf
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || '/api/v1').replace(/\/+$/, '')
 let refreshPromise: Promise<boolean> | null = null
 
+export class ApiError extends Error {
+  code: string
+  status: number
+
+  constructor(message: string, code: string, status: number) {
+    super(message)
+    this.name = 'ApiError'
+    this.code = code
+    this.status = status
+  }
+}
+
 // Generic fetch wrapper with auth
 async function refreshSession(): Promise<boolean> {
   if (!refreshPromise) {
@@ -59,7 +71,11 @@ async function apiFetch<T>(
 
     if (!response.ok) {
       const error = await response.json().catch(() => ({ message: 'Request failed' }))
-      throw new Error(error.message || `API Error: ${response.status}`)
+      throw new ApiError(
+        error.message || `API Error: ${response.status}`,
+        error.code || error.error || 'API_ERROR',
+        response.status,
+      )
     }
 
     return await response.json()
@@ -95,6 +111,20 @@ export const authApi = {
 
   async logout() {
     return apiFetch('/auth/logout', { method: 'POST' })
+  },
+
+  async resendVerification(email: string) {
+    return apiFetch<{ message: string }>('/auth/resend-verification', {
+      method: 'POST',
+      body: JSON.stringify({ email, account_type: 'company_user' }),
+    })
+  },
+
+  async verifyEmail(email: string, code: string) {
+    return apiFetch<{ message: string }>('/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ email, code }),
+    })
   },
 
   async getProfile() {
