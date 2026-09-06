@@ -164,3 +164,66 @@ typed in the client, loading/empty/error/unauthorized states exist in the UI,
 tenant and permission tests pass, writes are transactional and retry-safe, the
 affected workflows start cleanly, and the route has been smoke-tested through
 the proxied preview.
+
+## Immediate execution plan
+
+This is the default order for the next implementation cycle. Do not skip to
+distributed infrastructure before the earlier gates produce measurements.
+
+### Execute now: correctness that also protects throughput
+
+1. **Inventory write boundary**
+   - Create one service method for receiving, selling, transferring, and
+     adjusting stock.
+   - Run the row lock, available-stock validation, stock movement insert,
+     projection update, and audit event in one transaction.
+   - Add a durable idempotency key for every external mutation.
+   - Reject duplicate requests with the original result instead of performing
+     the write twice.
+2. **Security regression tests**
+   - Test wrong company, wrong pharmacy, wrong branch, missing permission,
+     inactive account, and session revocation.
+   - Test transaction commit, handler error rollback, panic rollback, and
+     responses that were already written.
+3. **Route and contract inventory**
+   - Maintain a table of every UI API call, registered backend route, auth
+     requirement, tenant scope, and implementation status.
+   - Remove or disable controls whose backend behavior is still a placeholder.
+
+### Execute next: measured performance foundations
+
+1. Configure explicit PostgreSQL pool limits, per-request timeouts, and
+   graceful shutdown. Calculate the connection budget for one instance and for
+   the expected replica count.
+2. Add request IDs, structured logs, latency/error metrics, database pool
+   metrics, and queue depth/failure metrics.
+3. Profile the real list and dashboard queries with
+   `EXPLAIN (ANALYZE, BUFFERS)`. Add only indexes justified by the plan.
+4. Replace deep `OFFSET` pagination with keyset/cursor pagination on large,
+   frequently accessed lists.
+5. Move email, exports, reports, and bulk operations out of the request path
+   into durable workers with retries and visible failure state.
+
+### Execute after baseline load tests
+
+- Add a shared distributed cache only for measured hot reads or permission
+  data; define invalidation and bounded TTL first.
+- Add read replicas only after identifying read saturation.
+- Add partitioning only after table growth and query plans justify it.
+- Consider service decomposition only when a bounded domain has an
+  independently measured scaling or deployment need.
+
+### Work-context text for future agents
+
+Use the following as the default instruction when implementing new features:
+
+> Build for a correct, observable modular monolith first. Do not add Redis,
+> microservices, read replicas, or partitioning as a guess. Start with the
+> backend contract and registered route, derive tenant scope from the
+> authenticated principal, centralize role and permission checks, and make
+> every mutation transactional and retry-safe. Measure query plans, pool
+> saturation, lock waits, p95/p99 latency, and error rate before claiming a
+> performance improvement. Never hide an incomplete endpoint with mock data or
+> a successful empty response. A feature is complete only when its failure
+> paths, tenant isolation, concurrency behavior, and proxied preview are
+> tested.

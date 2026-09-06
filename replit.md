@@ -11,6 +11,13 @@ This repository contains the Pharmacy OS frontend monorepo and backend:
 - `docs/architecture-readiness.md` — the current scale-readiness decision,
   confirmed gaps, and mandatory workflow for future agents.
 
+## Delivery priority
+
+For high-volume work, follow `docs/architecture-readiness.md` in order:
+transactional and idempotent inventory writes first, tenant/permission
+regression tests second, then measured pool/observability/query improvements.
+Do not introduce distributed infrastructure without a baseline load test.
+
 ## Replit setup
 
 Each frontend has its own independent workflow. The selected Run workflow is
