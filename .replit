@@ -8,8 +8,8 @@ expertMode = true
 
 [deployment]
 deploymentTarget = "autoscale"
-run = ["sh", "-c", "cd backend && CGO_ENABLED=0 go build -mod=vendor -o /tmp/pharmacy-api ./cmd/server && exec /tmp/pharmacy-api"]
-build = ["sh", "-c", "cd backend && CGO_ENABLED=0 go build -mod=vendor -o ../pharmacy-api ./cmd/server"]
+run = ["sh", "-c", "cd backend && GOTOOLCHAIN=auto GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct GOFLAGS=-mod=vendor CGO_ENABLED=0 go build -o /tmp/pharmacy-api ./cmd/server && exec /tmp/pharmacy-api"]
+build = ["sh", "-c", "cd backend && GOTOOLCHAIN=auto GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct GOFLAGS=-mod=vendor CGO_ENABLED=0 go build -o ../pharmacy-api ./cmd/server"]
 
 [workflows]
 runButton = "Project"
