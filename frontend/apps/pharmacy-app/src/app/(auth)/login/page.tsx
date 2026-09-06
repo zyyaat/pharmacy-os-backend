@@ -39,12 +39,9 @@ export default function LoginPage() {
       <div className="relative grid w-full max-w-5xl overflow-hidden rounded-3xl border border-border bg-card shadow-2xl lg:grid-cols-[1.05fr_0.95fr]">
         <div className="hidden flex-col justify-between bg-primary p-10 text-primary-foreground lg:flex">
           <div>
-            <div className="flex items-center gap-3">
-              <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-white/15 text-xl font-black">P</div>
-              <div>
-                <p className="text-lg font-bold">Pharmacy OS</p>
-                <p className="text-xs text-primary-foreground/70">إدارة الصيدلية بذكاء</p>
-              </div>
+            <div>
+              <img src="/brand/pharmacy-os-logo-dark.svg" alt="Pharmacy OS" className="h-11 w-auto" width="260" height="64" />
+              <p className="mt-2 text-xs text-primary-foreground/70">إدارة الصيدلية بذكاء</p>
             </div>
             <div className="mt-24">
               <p className="text-sm font-medium text-primary-foreground/70">مرحبًا بعودتك</p>
@@ -59,12 +56,9 @@ export default function LoginPage() {
 
         <div className="p-7 sm:p-10">
           <div className="mb-10 lg:hidden">
-            <div className="flex items-center gap-3">
-              <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-primary text-lg font-black text-primary-foreground">P</div>
-              <div>
-                <p className="font-bold">Pharmacy OS</p>
-                <p className="text-xs text-muted-foreground">إدارة الصيدلية</p>
-              </div>
+            <div>
+              <img src="/brand/pharmacy-os-logo-light.svg" alt="Pharmacy OS" className="h-10 w-auto" width="260" height="64" />
+              <p className="mt-2 text-xs text-muted-foreground">إدارة الصيدلية</p>
             </div>
           </div>
           <div>

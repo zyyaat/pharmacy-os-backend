@@ -107,17 +107,27 @@ export function Sidebar({ className, mobileOpen: controlledMobileOpen, onMobileC
       {/* Logo */}
       <div className="flex h-16 items-center justify-between border-b border-border px-4">
         {!collapsed && (
-          <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold">
-              P
-            </div>
-            <span className="text-lg font-bold gradient-text">Pharmacy OS</span>
+          <Link href="/" className="flex items-center" aria-label="Pharmacy OS - الرئيسية">
+            <img
+              src="/brand/pharmacy-os-logo-light.svg"
+              alt="Pharmacy OS"
+              className="h-9 w-auto max-w-[170px] dark:hidden"
+              width="260"
+              height="64"
+            />
+            <img
+              src="/brand/pharmacy-os-logo-dark.svg"
+              alt="Pharmacy OS"
+              className="hidden h-9 w-auto max-w-[170px] dark:block"
+              width="260"
+              height="64"
+            />
           </Link>
         )}
         {collapsed && (
-          <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary text-primary-foreground font-bold mx-auto">
-            P
-          </div>
+          <picture>
+            <img src="/brand/pharmacy-os-icon.svg" alt="Pharmacy OS" className="mx-auto h-9 w-9" width="36" height="36" />
+          </picture>
         )}
         
         {/* Mobile Close Button */}

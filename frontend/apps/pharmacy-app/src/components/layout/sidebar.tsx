@@ -41,11 +41,31 @@ export default function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boo
       <div className="flex h-16 items-center justify-between border-b border-border px-4">
         {!collapsed && (
           <Link href="/" className="flex items-center gap-2">
-            <div className="flex h-9 w-9 items-center justify-center rounded-lg bg-primary font-bold text-primary-foreground">P</div>
-            <span className="gradient-text text-lg font-bold">Pharmacy OS</span>
+            <img
+              src="/brand/pharmacy-os-logo-light.svg"
+              alt="Pharmacy OS"
+              className="h-9 w-auto max-w-[170px] dark:hidden"
+              width="260"
+              height="64"
+            />
+            <img
+              src="/brand/pharmacy-os-logo-dark.svg"
+              alt="Pharmacy OS"
+              className="hidden h-9 w-auto max-w-[170px] dark:block"
+              width="260"
+              height="64"
+            />
           </Link>
         )}
-        {collapsed && <div className="mx-auto flex h-9 w-9 items-center justify-center rounded-lg bg-primary font-bold text-primary-foreground">P</div>}
+        {collapsed && (
+          <img
+            src="/brand/pharmacy-os-icon.svg"
+            alt="Pharmacy OS"
+            className="mx-auto h-9 w-9"
+            width="36"
+            height="36"
+          />
+        )}
         <button className="rounded-lg p-1.5 hover:bg-accent lg:hidden" onClick={onMobileClose} aria-label="إغلاق القائمة">
           <X className="h-5 w-5" />
         </button>

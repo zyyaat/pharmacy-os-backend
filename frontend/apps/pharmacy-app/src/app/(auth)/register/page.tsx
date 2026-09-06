@@ -72,12 +72,9 @@ export default function RegisterPage() {
       <div className="absolute -right-32 -top-32 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
       <div className="absolute -bottom-40 -left-24 h-96 w-96 rounded-full bg-emerald-400/10 blur-3xl" />
       <div className="relative w-full max-w-2xl rounded-3xl border border-border bg-card p-7 shadow-2xl sm:p-10">
-        <div className="mb-8 flex items-center gap-3">
-          <div className="flex h-11 w-11 items-center justify-center rounded-xl bg-primary text-xl font-black text-primary-foreground">P</div>
-          <div>
-            <p className="text-lg font-bold">Pharmacy OS</p>
-            <p className="text-xs text-muted-foreground">إنشاء مساحة الصيدلية</p>
-          </div>
+        <div className="mb-8">
+          <img src="/brand/pharmacy-os-logo-light.svg" alt="Pharmacy OS" className="h-11 w-auto" width="260" height="64" />
+          <p className="mt-2 text-xs text-muted-foreground">إنشاء مساحة الصيدلية</p>
         </div>
 
         <div>

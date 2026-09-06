@@ -10,7 +10,6 @@ import {
   Mail, 
   ArrowLeft,
   AlertCircle,
-  Building2
 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { Input } from "@/components/ui";
@@ -63,12 +62,22 @@ export default function LoginPage() {
       <div className="relative w-full max-w-md mx-4 animate-scale-in">
         {/* Logo & Header */}
         <div className="text-center mb-8">
-          <Link href="/" className="inline-flex items-center justify-center w-16 h-16 rounded-2xl bg-primary text-primary-foreground mb-4 shadow-lg shadow-primary/25">
-            <Building2 className="h-8 w-8" />
+          <Link href="/" className="mb-4 inline-flex items-center justify-center" aria-label="Pharmacy OS - الرئيسية">
+            <img
+              src="/brand/pharmacy-os-logo-light.svg"
+              alt="Pharmacy OS"
+              className="h-16 w-auto dark:hidden"
+              width="260"
+              height="64"
+            />
+            <img
+              src="/brand/pharmacy-os-logo-dark.svg"
+              alt="Pharmacy OS"
+              className="hidden h-16 w-auto dark:block"
+              width="260"
+              height="64"
+            />
           </Link>
-          <h1 className="text-3xl font-bold mb-2">
-            <span className="gradient-text">Pharmacy OS</span>
-          </h1>
           <p className="text-muted-foreground">
             مرحباً بعودتك! سجّل دخولك للوحة التحكم
           </p>
