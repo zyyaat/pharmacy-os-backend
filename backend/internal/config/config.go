@@ -5,6 +5,7 @@ package config
 import (
 	"fmt"
 	"log"
+	urlpkg "net/url"
 	"os"
 	"strings"
 	"time"
@@ -85,11 +86,14 @@ func maskDatabaseURL(url string) string {
 	if url == "" {
 		return "(empty)"
 	}
-	// Show only the host part, mask credentials
-	if len(url) > 50 {
-		return url[:50] + "..."
+
+	parsed, err := urlpkg.Parse(url)
+	if err != nil || parsed.User == nil {
+		return "[redacted database URL]"
 	}
-	return url
+
+	parsed.User = urlpkg.UserPassword(parsed.User.Username(), "***")
+	return parsed.String()
 }
 
 // IsProduction returns true if running in production mode
