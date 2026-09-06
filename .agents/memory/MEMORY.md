@@ -5,3 +5,4 @@
 - [Tenant-scoped dashboards](tenant-scoped-dashboards.md) — dashboard reads must derive tenant scope from the authenticated principal, never client-supplied IDs or demo fallbacks.
 - [Multi-platform deployment](multi-platform-deployment.md) — Vercel should proxy relative `/api/v1` requests to a public backend via `BACKEND_INTERNAL_URL`.
 - [Pharmacy product ownership](pharmacy-product-ownership.md) — products, packaging, prices, and stock are pharmacy-owned; Super Admin is not the product business owner.
+- [Production database provisioning](replit-production-database.md) — first Replit publish may require enabling Create production database in Publishing settings before autoscale can start.
