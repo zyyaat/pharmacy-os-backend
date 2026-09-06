@@ -1,4 +1,4 @@
-modules = ["go-1.21", "nodejs-20", "web"]
+modules = ["go-1.25", "nodejs-20", "web", "postgresql-16"]
 
 [nix]
 channel = "stable-25_05"
@@ -56,7 +56,7 @@ author = "agent"
 
 [[workflows.workflow.tasks]]
 task = "shell.exec"
-args = "cd backend && GOSUMDB=sum.golang.org go run ./cmd/server"
+args = "cd backend && GOTOOLCHAIN=local GOFLAGS=-mod=vendor go run ./cmd/server"
 waitForPort = 8080
 
 [workflows.workflow.metadata]
