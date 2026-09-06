@@ -153,7 +153,7 @@ func (h *Handler) login(c *gin.Context) {
 		case errors.Is(err, ErrAccountInactive):
 			writeError(c, http.StatusForbidden, "account_inactive", "Account is inactive")
 		case errors.Is(err, ErrEmailNotVerified):
-			writeError(c, http.StatusForbidden, "email_not_verified", "Please verify your email before signing in")
+			writeError(c, http.StatusForbidden, "email_not_verified", "يرجى تأكيد بريدك الإلكتروني قبل تسجيل الدخول")
 		default:
 			writeError(c, http.StatusUnauthorized, "invalid_credentials", "Invalid email or password")
 		}

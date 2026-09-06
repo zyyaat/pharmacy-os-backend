@@ -1,1 +1,2 @@
 - [Replit Go publishing](go-publishing.md) — imported Go services may need an available Replit Go module and newer dependencies before build/publish succeeds.
+- [Authentication ownership](authentication-ownership.md) — Marketing is informational; Pharmacy App owns registration, login, and authenticated account flows.

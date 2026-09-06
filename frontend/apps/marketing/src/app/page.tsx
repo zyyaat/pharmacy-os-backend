@@ -1,3 +1,5 @@
+import PharmacyAppLink from '@/components/pharmacy-app-link'
+
 const features = [
   {
     index: '01',
@@ -66,10 +68,10 @@ export default function Home() {
           </p>
 
           <div className="hero-actions" id="start">
-            <a className="button button-primary" href="/register">
+            <PharmacyAppLink className="button button-primary">
               ابدأ الآن
               <span aria-hidden="true">←</span>
-            </a>
+            </PharmacyAppLink>
             <a className="button button-ghost" href="#features">
               اكتشف المنصة
               <span aria-hidden="true">↓</span>

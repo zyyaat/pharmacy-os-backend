@@ -1,6 +1,7 @@
 "use client"
 
 import { FormEvent, useState } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 
@@ -101,6 +102,10 @@ export default function LoginPage() {
               {loading ? 'جاري تسجيل الدخول...' : 'تسجيل الدخول'}
             </button>
           </form>
+          <p className="mt-6 text-center text-sm text-muted-foreground">
+            ليس لديك حساب؟{' '}
+            <Link className="font-medium text-primary hover:underline" href="/register">أنشئ حساب الصيدلية</Link>
+          </p>
           <p className="mt-8 text-center text-xs text-muted-foreground">تحتاج مساعدة؟ تواصل مع مسؤول النظام</p>
         </div>
       </div>
