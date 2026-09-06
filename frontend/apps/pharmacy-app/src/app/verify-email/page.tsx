@@ -2,9 +2,14 @@
 
 import { FormEvent, useEffect, useState } from 'react'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
+import { useAuth } from '@/hooks/useAuth'
 import { authApi } from '@/lib/api'
+import { getSafeRedirectPath } from '@/lib/navigation'
 
 export default function VerifyEmailPage() {
+  const router = useRouter()
+  const { user, loading: authLoading } = useAuth()
   const [email, setEmail] = useState('')
   const [code, setCode] = useState('')
   const [message, setMessage] = useState('أدخل رمز التحقق المكوّن من 6 أرقام')
@@ -14,6 +19,13 @@ export default function VerifyEmailPage() {
   const [sent, setSent] = useState(false)
 
   useEffect(() => {
+    if (!authLoading && user) {
+      router.replace(getSafeRedirectPath(new URLSearchParams(window.location.search).get('next')))
+    }
+  }, [authLoading, router, user])
+
+  useEffect(() => {
+    if (authLoading || user) return
     const params = new URLSearchParams(window.location.search)
     const pendingEmail = params.get('email')?.trim() || ''
     setEmail(pendingEmail)
@@ -47,7 +59,7 @@ export default function VerifyEmailPage() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [authLoading, user])
 
   async function verifyEmail(event: FormEvent<HTMLFormElement>) {
     event.preventDefault()
@@ -95,6 +107,14 @@ export default function VerifyEmailPage() {
     } finally {
       setSending(false)
     }
+  }
+
+  if (authLoading || user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
+        جاري التحقق من الجلسة...
+      </div>
+    )
   }
 
   return (
