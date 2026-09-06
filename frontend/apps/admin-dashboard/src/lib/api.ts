@@ -41,6 +41,10 @@ async function refreshSession(): Promise<boolean> {
   return refreshPromise
 }
 
+function shouldRefreshSession(endpoint: string): boolean {
+  return endpoint === '/auth/me' || !endpoint.startsWith('/auth/')
+}
+
 async function apiFetch<T>(
   endpoint: string,
   options: RequestInit = {},
@@ -65,7 +69,7 @@ async function apiFetch<T>(
       credentials: 'include',
     })
 
-    if (response.status === 401 && canRefresh && !endpoint.startsWith('/auth/')) {
+    if (response.status === 401 && canRefresh && shouldRefreshSession(endpoint)) {
       if (await refreshSession()) return apiFetch<T>(endpoint, options, false)
     }
 

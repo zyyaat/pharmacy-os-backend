@@ -36,6 +36,10 @@ async function refreshSession(): Promise<boolean> {
   return refreshPromise
 }
 
+function shouldRefreshSession(endpoint: string): boolean {
+  return endpoint === '/auth/me' || !endpoint.startsWith('/auth/')
+}
+
 export async function apiFetch<T>(endpoint: string, options: RequestInit = {}, canRefresh = true): Promise<T> {
   let response: Response
   try {
@@ -55,7 +59,7 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}, c
       0,
     )
   }
-  if (response.status === 401 && canRefresh && !endpoint.startsWith('/auth/')) {
+  if (response.status === 401 && canRefresh && shouldRefreshSession(endpoint)) {
     if (await refreshSession()) return apiFetch<T>(endpoint, options, false)
   }
   const body = await response.json().catch(() => ({}))
