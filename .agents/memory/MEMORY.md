@@ -7,3 +7,4 @@
 - [Pharmacy product ownership](pharmacy-product-ownership.md) — products, packaging, prices, and stock are pharmacy-owned; Super Admin is not the product business owner.
 - [Production database provisioning](replit-production-database.md) — first Replit publish may require enabling Create production database in Publishing settings before autoscale can start.
 - [Vercel lockfile registry](vercel-lockfile-registry.md) — package locks shared with Vercel must use public npm tarball URLs, never Replit's internal package firewall host.
+- [Initial platform admin provisioning](initial-platform-admin.md) — the first production Super Admin is bootstrapped once at backend startup with a temporary managed secret, then the secret must be removed.

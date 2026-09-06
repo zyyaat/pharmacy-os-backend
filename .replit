@@ -106,6 +106,10 @@ APP_ENV = "production"
 AUTH_COOKIE_SECURE = "true"
 CORS_ORIGINS = "https://pharmacy-app-theta-nine.vercel.app,https://admin-dashboard-swart-two-41.vercel.app"
 PUBLIC_APP_URL = "https://pharmacy-app-theta-nine.vercel.app"
+BOOTSTRAP_SUPER_ADMIN_COMPANY = "Pharmacy OS"
+BOOTSTRAP_SUPER_ADMIN_EMAIL = "zyyat@outlook.sa"
+BOOTSTRAP_SUPER_ADMIN_FIRST_NAME = "Mohamed"
+BOOTSTRAP_SUPER_ADMIN_LAST_NAME = "Admin"
 
 [userenv.shared]
 MAIL_FROM_EMAIL = "zayat2349@gmail.com"

@@ -4,10 +4,12 @@ package main
 import (
 	"context"
 	"log"
+	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
+	"github.com/pharmacy-os/backend/internal/auth"
 	"github.com/pharmacy-os/backend/internal/config"
 	"github.com/pharmacy-os/backend/internal/handlers"
 )
@@ -36,6 +38,21 @@ func main() {
 	defer db.Close()
 	if err := db.Ping(ctx); err != nil {
 		log.Fatalf("Failed to connect to database: %v", err)
+	}
+
+	if cfg.IsProduction() && strings.TrimSpace(cfg.BootstrapSuperAdminPassword) != "" {
+		bootstrap := auth.NewService(db, auth.Config{})
+		if err := bootstrap.BootstrapSuperAdmin(
+			ctx,
+			cfg.BootstrapSuperAdminEmail,
+			cfg.BootstrapSuperAdminPassword,
+			cfg.BootstrapSuperAdminFirstName,
+			cfg.BootstrapSuperAdminLastName,
+			cfg.BootstrapSuperAdminCompany,
+		); err != nil {
+			log.Fatalf("Failed to bootstrap super admin: %v", err)
+		}
+		log.Printf("Super admin bootstrap completed or was already satisfied")
 	}
 
 	// Initialize handlers

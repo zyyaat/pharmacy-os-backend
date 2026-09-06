@@ -39,6 +39,13 @@ type Config struct {
 	LogLevel       string // "debug", "info", "warn", "error"
 	CorsOrigins    string // Comma-separated list of allowed origins
 	MaxRequestSize int64  // Max request body size in bytes (default: 10MB)
+
+	// One-time production bootstrap for the initial platform administrator.
+	BootstrapSuperAdminEmail     string
+	BootstrapSuperAdminPassword  string
+	BootstrapSuperAdminFirstName string
+	BootstrapSuperAdminLastName  string
+	BootstrapSuperAdminCompany   string
 }
 
 // Load reads configuration from environment variables with sensible defaults
@@ -72,6 +79,12 @@ func Load() *Config {
 		LogLevel:       getEnv("LOG_LEVEL", "info"),
 		CorsOrigins:    getEnv("CORS_ORIGINS", "http://localhost:3000,http://localhost:3001"),
 		MaxRequestSize: getEnvAsInt64("MAX_REQUEST_SIZE", 10*1024*1024), // 10MB default
+
+		BootstrapSuperAdminEmail:     getEnv("BOOTSTRAP_SUPER_ADMIN_EMAIL", ""),
+		BootstrapSuperAdminPassword:  getEnv("BOOTSTRAP_SUPER_ADMIN_PASSWORD", ""),
+		BootstrapSuperAdminFirstName: getEnv("BOOTSTRAP_SUPER_ADMIN_FIRST_NAME", "Mohamed"),
+		BootstrapSuperAdminLastName:  getEnv("BOOTSTRAP_SUPER_ADMIN_LAST_NAME", "Admin"),
+		BootstrapSuperAdminCompany:   getEnv("BOOTSTRAP_SUPER_ADMIN_COMPANY", "Pharmacy OS"),
 	}
 
 	// Log important configuration for debugging
