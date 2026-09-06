@@ -1,4 +1,4 @@
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1'
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || '/api/v1').replace(/\/+$/, '')
 
 function csrfHeaders(): HeadersInit {
   if (typeof document === 'undefined') return {}
@@ -37,15 +37,24 @@ async function refreshSession(): Promise<boolean> {
 }
 
 export async function apiFetch<T>(endpoint: string, options: RequestInit = {}, canRefresh = true): Promise<T> {
-  const response = await fetch(`${API_BASE_URL}${endpoint}`, {
-    ...options,
-    credentials: 'include',
-    headers: {
-      'Content-Type': 'application/json',
-      ...(options.method && options.method !== 'GET' ? csrfHeaders() : {}),
-      ...(options.headers || {}),
-    },
-  })
+  let response: Response
+  try {
+    response = await fetch(`${API_BASE_URL}${endpoint}`, {
+      ...options,
+      credentials: 'include',
+      headers: {
+        'Content-Type': 'application/json',
+        ...(options.method && options.method !== 'GET' ? csrfHeaders() : {}),
+        ...(options.headers || {}),
+      },
+    })
+  } catch {
+    throw new ApiError(
+      'تعذر الاتصال بخادم النظام. راجع NEXT_PUBLIC_API_URL وإعدادات CORS في الـ backend.',
+      'API_UNREACHABLE',
+      0,
+    )
+  }
   if (response.status === 401 && canRefresh && !endpoint.startsWith('/auth/')) {
     if (await refreshSession()) return apiFetch<T>(endpoint, options, false)
   }

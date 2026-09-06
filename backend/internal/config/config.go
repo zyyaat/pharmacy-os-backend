@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"strings"
 	"time"
 )
 
@@ -41,6 +42,7 @@ type Config struct {
 
 // Load reads configuration from environment variables with sensible defaults
 func Load() *Config {
+	databaseURL := getEnv("DATABASE_URL", "postgresql://postgres:postgres@localhost:6543/postgres")
 	cfg := &Config{
 		// Server
 		// Priority: PORT (DockHosting/standard) > BACKEND_PORT (custom) > 8080 (default)
@@ -48,7 +50,7 @@ func Load() *Config {
 		Environment: getEnv("APP_ENV", "development"),
 
 		// Database - Default to Supavisor port 6543
-		DatabaseURL: getEnv("DATABASE_URL", "postgresql://postgres:postgres@localhost:6543/postgres"),
+		DatabaseURL: databaseURL,
 
 		// Go-managed Authentication
 		AuthAccessTTL:  15 * time.Minute,
@@ -63,7 +65,7 @@ func Load() *Config {
 		PublicAppURL:  getEnv("PUBLIC_APP_URL", ""),
 
 		// River Queue
-		RiverDSN: getEnv("RIVER_DSN", "postgresql://postgres:postgres@localhost:6543/postgres"),
+		RiverDSN: getEnv("RIVER_DSN", databaseURL),
 
 		// Application Settings
 		LogLevel:       getEnv("LOG_LEVEL", "info"),
@@ -107,6 +109,14 @@ func (c *Config) Validate() error {
 	if c.DatabaseURL == "" {
 		errors = append(errors, "DATABASE_URL is required")
 	}
+	if c.IsProduction() {
+		if strings.TrimSpace(os.Getenv("CORS_ORIGINS")) == "" {
+			errors = append(errors, "CORS_ORIGINS is required in production")
+		}
+		if strings.TrimSpace(c.PublicAppURL) == "" {
+			errors = append(errors, "PUBLIC_APP_URL is required in production")
+		}
+	}
 
 	if len(errors) > 0 {
 		return fmt.Errorf("configuration errors: %v", errors)
@@ -131,7 +141,7 @@ func (c *Config) GetCorsOrigins() []string {
 
 	origins := make([]string, 0)
 	for _, origin := range splitString(c.CorsOrigins, ",") {
-		if trimmed := trimSpace(origin); trimmed != "" {
+		if trimmed := strings.TrimRight(trimSpace(origin), "/"); trimmed != "" {
 			origins = append(origins, trimmed)
 		}
 	}

@@ -6,6 +6,7 @@ import (
 	"log"
 	"time"
 
+	"github.com/jackc/pgx/v5"
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/pharmacy-os/backend/internal/config"
 	"github.com/pharmacy-os/backend/internal/handlers"
@@ -14,10 +15,21 @@ import (
 func main() {
 	// Load configuration
 	cfg := config.Load()
+	if err := cfg.Validate(); err != nil {
+		log.Fatalf("Invalid configuration: %v", err)
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	defer cancel()
-	db, err := pgxpool.New(ctx, cfg.DatabaseURL)
+	poolConfig, err := pgxpool.ParseConfig(cfg.DatabaseURL)
+	if err != nil {
+		log.Fatalf("Failed to parse database configuration: %v", err)
+	}
+	// Supabase's transaction pooler does not keep prepared statements between
+	// connections. Simple query execution works with both pooled and direct
+	// PostgreSQL URLs, so use it consistently across hosting providers.
+	poolConfig.ConnConfig.DefaultQueryExecMode = pgx.QueryExecModeExec
+	db, err := pgxpool.NewWithConfig(ctx, poolConfig)
 	if err != nil {
 		log.Fatalf("Failed to initialize database pool: %v", err)
 	}

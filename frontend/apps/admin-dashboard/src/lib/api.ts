@@ -3,7 +3,7 @@
 
 import type { Company, CompanyUser, DashboardStats, Account, ActivityItem } from '@/types'
 
-const API_BASE_URL = process.env.NEXT_PUBLIC_API_URL || '/api/v1'
+const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || '/api/v1').replace(/\/+$/, '')
 let refreshPromise: Promise<boolean> | null = null
 
 // Generic fetch wrapper with auth
