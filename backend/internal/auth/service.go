@@ -425,7 +425,7 @@ func (s *Service) findCompanyUser(ctx context.Context, email, companyID string) 
 		LEFT JOIN accounts a ON a.company_id = cu.company_id AND a.deleted_at IS NULL
 		LEFT JOIN pharmacies p ON p.account_id = a.id AND p.is_active = true AND p.is_main_branch = true
 		LEFT JOIN branches b ON b.id = p.default_branch_id AND b.is_active = true
-		WHERE LOWER(email) = LOWER($1)
+		WHERE LOWER(cu.email) = LOWER($1)
 		  AND ($2 = '' OR cu.company_id::text = $2)
 		  AND cu.deleted_at IS NULL
 		ORDER BY cu.created_at

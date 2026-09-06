@@ -89,3 +89,9 @@ APP_ENV = "production"
 AUTH_COOKIE_SECURE = "true"
 CORS_ORIGINS = "https://pharmacy-app-theta-nine.vercel.app,https://admin-dashboard-swart-two-41.vercel.app"
 PUBLIC_APP_URL = "https://pharmacy-app-theta-nine.vercel.app"
+
+[userenv.shared]
+MAIL_FROM_EMAIL = "zayat2349@gmail.com"
+
+[userenv.development]
+PUBLIC_APP_URL = "https://8e9ec9ec-bf3b-4a07-9d73-7f9be3fe24cd-00-3nm9q5b3j8293.kirk.replit.dev:3000"
