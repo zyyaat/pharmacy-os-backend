@@ -20,3 +20,9 @@ Platform-admin and pharmacy authentication are separate realms with separate coo
 **Why:** Browser cookies are shared across ports on the same host, so shared auth names allowed an admin session to render the pharmacy shell before API authorization rejected it.
 
 **How to apply:** Preserve realm checks in both session queries and route middleware, and keep each frontend bound to its own realm-specific auth client.
+
+Unverified-account flows should issue verification mail after a correct-password login and when the verification screen opens, while enforcing a short resend cooldown and invalidating tokens when delivery fails.
+
+**Why:** Users commonly return after registration without a valid code; relying only on a manual resend leaves them stuck, while repeated page loads can otherwise invalidate or spam codes.
+
+**How to apply:** Keep one active verification token per principal, treat recent valid tokens as reusable, and allow a failed delivery to be retried immediately.

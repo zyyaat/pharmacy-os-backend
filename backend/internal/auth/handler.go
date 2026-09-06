@@ -1,6 +1,7 @@
 package auth
 
 import (
+	"context"
 	"errors"
 	"log"
 	"net/http"
@@ -106,17 +107,9 @@ func (h *Handler) register(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "registration_failed", "Could not create account")
 		return
 	}
-	code, err := h.service.CreateEmailToken(c.Request.Context(), principal, VerifyEmailPurpose)
+	emailSent, err := h.sendVerificationEmail(c.Request.Context(), principal)
 	if err != nil {
-		log.Printf("registration verification code failed: %v", err)
-	}
-	emailSent := false
-	if code != "" {
-		if err := h.mailer.verificationEmail(c.Request.Context(), principal.Email, code); err != nil {
-			log.Printf("registration verification email failed: %v", err)
-		} else {
-			emailSent = true
-		}
+		log.Printf("registration verification email failed: %v", err)
 	}
 	c.JSON(http.StatusCreated, gin.H{
 		"user":                        userPayload(principal),
@@ -160,6 +153,11 @@ func (h *Handler) loginForRealm(c *gin.Context, realm AuthRealm) {
 		case errors.Is(err, ErrAccountInactive):
 			writeError(c, http.StatusForbidden, "account_inactive", "Account is inactive")
 		case errors.Is(err, ErrEmailNotVerified):
+			if principal != nil {
+				if _, sendErr := h.sendVerificationEmail(c.Request.Context(), principal); sendErr != nil {
+					log.Printf("login verification email failed for principal type %s: %v", principal.Type, sendErr)
+				}
+			}
 			writeError(c, http.StatusForbidden, "email_not_verified", "يرجى تأكيد بريدك الإلكتروني قبل تسجيل الدخول")
 		default:
 			writeError(c, http.StatusUnauthorized, "invalid_credentials", "Invalid email or password")
@@ -307,18 +305,33 @@ func (h *Handler) resendVerification(c *gin.Context) {
 	}
 	principal, err := h.service.FindPrincipal(c.Request.Context(), req.Email, normalizePrincipalType(req.AccountType), "")
 	if err == nil && !principal.EmailVerified {
-		code, tokenErr := h.service.CreateEmailToken(c.Request.Context(), principal, VerifyEmailPurpose)
-		if tokenErr != nil {
-			writeError(c, http.StatusInternalServerError, "verification_failed", "Could not create verification request")
-			return
-		}
-		if err := h.mailer.verificationEmail(c.Request.Context(), principal.Email, code); err != nil {
-			log.Printf("verification email failed for principal type %s: %v", principal.Type, err)
+		sent, sendErr := h.sendVerificationEmail(c.Request.Context(), principal)
+		if sendErr != nil {
+			log.Printf("verification email failed for principal type %s: %v", principal.Type, sendErr)
 			writeError(c, http.StatusServiceUnavailable, "email_delivery_failed", "تعذر إرسال رمز التحقق الآن. تحقق من إعداد البريد وحاول مرة أخرى")
 			return
 		}
+		c.JSON(http.StatusOK, gin.H{
+			"message": "If the account needs verification, a code will be sent",
+			"sent":    sent,
+		})
+		return
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "If the account needs verification, a code will be sent"})
+	c.JSON(http.StatusOK, gin.H{"message": "If the account needs verification, a code will be sent", "sent": false})
+}
+
+func (h *Handler) sendVerificationEmail(ctx context.Context, principal *Principal) (bool, error) {
+	code, sent, err := h.service.CreateEmailTokenIfDue(ctx, principal, VerifyEmailPurpose)
+	if err != nil || !sent {
+		return sent, err
+	}
+	if err := h.mailer.verificationEmail(ctx, principal.Email, code); err != nil {
+		if invalidateErr := h.service.InvalidateEmailToken(ctx, principal, VerifyEmailPurpose); invalidateErr != nil {
+			log.Printf("verification token cleanup failed for principal type %s: %v", principal.Type, invalidateErr)
+		}
+		return false, err
+	}
+	return true, nil
 }
 
 func (h *Handler) resetPassword(c *gin.Context) {

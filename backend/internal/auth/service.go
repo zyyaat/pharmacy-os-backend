@@ -24,6 +24,8 @@ const (
 	ResetPasswordPurpose = "reset_password"
 )
 
+const verificationResendCooldown = 60 * time.Second
+
 type AuthRealm string
 
 const (
@@ -343,6 +345,45 @@ func (s *Service) CreateEmailToken(ctx context.Context, principal *Principal, pu
 		return "", err
 	}
 	return raw, nil
+}
+
+func (s *Service) CreateEmailTokenIfDue(ctx context.Context, principal *Principal, purpose string) (string, bool, error) {
+	var recentlyIssued bool
+	err := s.db.QueryRow(ctx, `
+		SELECT EXISTS (
+			SELECT 1
+			FROM auth_email_tokens
+			WHERE principal_type = $1
+			  AND principal_id = $2
+			  AND purpose = $3
+			  AND used_at IS NULL
+			  AND expires_at > NOW()
+			  AND created_at > NOW() - ($4::bigint * INTERVAL '1 second')
+		)
+	`, principal.Type, principal.ID, purpose, int64(verificationResendCooldown/time.Second)).Scan(&recentlyIssued)
+	if err != nil {
+		return "", false, err
+	}
+	if recentlyIssued {
+		return "", false, nil
+	}
+	code, err := s.CreateEmailToken(ctx, principal, purpose)
+	if err != nil {
+		return "", false, err
+	}
+	return code, true, nil
+}
+
+func (s *Service) InvalidateEmailToken(ctx context.Context, principal *Principal, purpose string) error {
+	_, err := s.db.Exec(ctx, `
+		UPDATE auth_email_tokens
+		SET used_at = NOW()
+		WHERE principal_type = $1
+		  AND principal_id = $2
+		  AND purpose = $3
+		  AND used_at IS NULL
+	`, principal.Type, principal.ID, purpose)
+	return err
 }
 
 func (s *Service) ConsumeEmailToken(ctx context.Context, raw, purpose string) (*Principal, error) {

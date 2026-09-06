@@ -13,7 +13,36 @@ export default function VerifyEmailPage() {
   const [verifying, setVerifying] = useState(false);
 
   useEffect(() => {
-    setEmail(new URLSearchParams(window.location.search).get("email")?.trim() || "");
+    const pendingEmail = new URLSearchParams(window.location.search).get("email")?.trim() || "";
+    setEmail(pendingEmail);
+    if (!pendingEmail) return;
+
+    let cancelled = false;
+    setSending(true);
+    void authApi.resendVerification(pendingEmail)
+      .then((response) => {
+        if (cancelled) return;
+        setError("");
+        setMessage(
+          response.sent === false
+            ? "يوجد رمز تحقق صالح بالفعل. استخدم آخر رمز أُرسل إلى بريدك الإلكتروني."
+            : "تم إرسال رمز تحقق جديد إلى بريدك الإلكتروني.",
+        );
+      })
+      .catch((resendError) => {
+        if (cancelled) return;
+        setError(
+          resendError instanceof ApiError
+            ? resendError.message
+            : "تعذر إرسال رمز التحقق الآن",
+        );
+      })
+      .finally(() => {
+        if (!cancelled) setSending(false);
+      });
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
   async function verifyEmail(event: FormEvent<HTMLFormElement>) {
@@ -44,8 +73,12 @@ export default function VerifyEmailPage() {
     setSending(true);
     setError("");
     try {
-      await authApi.resendVerification(email);
-      setMessage("تم إرسال رمز تحقق جديد. تحقق من صندوق الوارد والرسائل غير المرغوب فيها.");
+      const response = await authApi.resendVerification(email);
+      setMessage(
+        response.sent === false
+          ? "يوجد رمز تحقق صالح بالفعل. استخدم آخر رمز أُرسل إلى بريدك الإلكتروني."
+          : "تم إرسال رمز تحقق جديد. تحقق من صندوق الوارد والرسائل غير المرغوب فيها.",
+      );
     } catch (resendError) {
       setError(
         resendError instanceof ApiError

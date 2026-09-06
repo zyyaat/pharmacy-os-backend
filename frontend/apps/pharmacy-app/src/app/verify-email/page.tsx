@@ -21,6 +21,32 @@ export default function VerifyEmailPage() {
       setError(true)
       setMessage('تم إنشاء الحساب، لكن تعذر إرسال رمز التحقق. حاول إعادة الإرسال الآن.')
     }
+    if (!pendingEmail) return
+
+    let cancelled = false
+    setSending(true)
+    void authApi.resendVerification(pendingEmail)
+      .then((response) => {
+        if (cancelled) return
+        setSent(response.sent !== false)
+        setError(false)
+        setMessage(
+          response.sent === false
+            ? 'يوجد رمز تحقق صالح بالفعل. استخدم آخر رمز أُرسل إلى بريدك الإلكتروني.'
+            : 'تم إرسال رمز تحقق جديد إلى بريدك الإلكتروني',
+        )
+      })
+      .catch((resendError) => {
+        if (cancelled) return
+        setError(true)
+        setMessage(resendError instanceof Error ? resendError.message : 'تعذر إرسال رمز التحقق')
+      })
+      .finally(() => {
+        if (!cancelled) setSending(false)
+      })
+    return () => {
+      cancelled = true
+    }
   }, [])
 
   async function verifyEmail(event: FormEvent<HTMLFormElement>) {
@@ -56,9 +82,13 @@ export default function VerifyEmailPage() {
     setError(false)
     setSent(false)
     try {
-      await authApi.resendVerification(email)
-      setSent(true)
-      setMessage('تم إرسال رمز تحقق جديد إلى بريدك الإلكتروني')
+      const response = await authApi.resendVerification(email)
+      setSent(response.sent !== false)
+      setMessage(
+        response.sent === false
+          ? 'يوجد رمز تحقق صالح بالفعل. استخدم آخر رمز أُرسل إلى بريدك الإلكتروني.'
+          : 'تم إرسال رمز تحقق جديد إلى بريدك الإلكتروني',
+      )
     } catch (resendError) {
       setError(true)
       setMessage(resendError instanceof Error ? resendError.message : 'تعذر إرسال رمز التحقق')

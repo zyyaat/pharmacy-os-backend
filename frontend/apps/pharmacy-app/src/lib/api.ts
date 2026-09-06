@@ -83,7 +83,7 @@ export const authApi = {
     })
   },
   resendVerification(email: string) {
-    return apiFetch<{ message: string }>('/auth/resend-verification', {
+    return apiFetch<{ message: string; sent?: boolean }>('/auth/resend-verification', {
       method: 'POST',
       body: JSON.stringify({ email }),
     })
