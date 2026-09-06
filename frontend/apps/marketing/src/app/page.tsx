@@ -26,15 +26,13 @@ export default function Home() {
 
       <header className="site-header">
         <a className="brand" href="#top" aria-label="Pharmacy OS - الرئيسية">
-          <span className="brand-mark" aria-hidden="true">
-            <span />
-            <span />
-            <span />
-          </span>
-          <span className="brand-name">
-            <strong>Pharmacy</strong>
-            <em>OS</em>
-          </span>
+          <img
+            className="brand-logo"
+            src="/brand/pharmacy-os-logo.svg"
+            alt="Pharmacy OS"
+            width="260"
+            height="64"
+          />
         </a>
 
         <nav className="main-nav" aria-label="التنقل الرئيسي">
