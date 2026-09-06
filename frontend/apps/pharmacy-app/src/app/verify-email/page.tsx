@@ -2,16 +2,30 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
+import { authApi } from '@/lib/api'
 
 export default function VerifyEmailPage() {
   const [message, setMessage] = useState('جاري تأكيد البريد الإلكتروني...')
   const [error, setError] = useState(false)
+  const [email, setEmail] = useState('')
+  const [hasToken, setHasToken] = useState(false)
+  const [sending, setSending] = useState(false)
+  const [sent, setSent] = useState(false)
 
   useEffect(() => {
-    const token = new URLSearchParams(window.location.search).get('token')
+    const params = new URLSearchParams(window.location.search)
+    const token = params.get('token')
+    const pendingEmail = params.get('email')?.trim() || ''
+    setEmail(pendingEmail)
+    setHasToken(Boolean(token))
+
     if (!token) {
-      setError(true)
-      setMessage('رابط تأكيد البريد غير صالح')
+      if (pendingEmail) {
+        setMessage('تحقق من بريدك الإلكتروني لتفعيل الحساب')
+      } else {
+        setError(true)
+        setMessage('رابط تأكيد البريد غير صالح')
+      }
       return
     }
 
@@ -33,6 +47,23 @@ export default function VerifyEmailPage() {
       })
   }, [])
 
+  async function resendVerification() {
+    if (!email || sending) return
+    setSending(true)
+    setError(false)
+    setSent(false)
+    try {
+      await authApi.resendVerification(email)
+      setSent(true)
+      setMessage('تم إرسال رابط تحقق جديد إلى بريدك الإلكتروني')
+    } catch (resendError) {
+      setError(true)
+      setMessage(resendError instanceof Error ? resendError.message : 'تعذر إرسال رابط التحقق')
+    } finally {
+      setSending(false)
+    }
+  }
+
   return (
     <main className="relative flex min-h-screen items-center justify-center overflow-hidden bg-background px-4 py-8" dir="rtl">
       <div className="absolute -right-32 -top-32 h-96 w-96 rounded-full bg-primary/10 blur-3xl" />
@@ -43,11 +74,22 @@ export default function VerifyEmailPage() {
         </div>
         <p className="mt-6 text-sm font-medium text-primary">Pharmacy OS</p>
         <h1 className="mt-3 text-2xl font-bold leading-relaxed">{message}</h1>
-        {error && (
-          <Link className="mt-8 inline-flex h-11 items-center rounded-xl bg-primary px-6 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition hover:bg-primary/90" href="/login">
-            العودة إلى تسجيل الدخول
-          </Link>
+        {!hasToken && email && (
+          <div className="mt-8 space-y-3">
+            <button
+              className="inline-flex h-11 items-center rounded-xl bg-primary px-6 text-sm font-semibold text-primary-foreground shadow-lg shadow-primary/20 transition hover:bg-primary/90 disabled:cursor-not-allowed disabled:opacity-60"
+              type="button"
+              onClick={resendVerification}
+              disabled={sending}
+            >
+              {sending ? 'جاري الإرسال...' : 'إعادة إرسال رابط التحقق'}
+            </button>
+            {sent && <p className="text-sm text-emerald-600">تحقق من صندوق الوارد ومجلد الرسائل غير المرغوب فيها.</p>}
+          </div>
         )}
+        <Link className="mt-8 inline-flex h-11 items-center rounded-xl border border-border px-6 text-sm font-semibold transition hover:bg-muted" href="/login">
+          العودة إلى تسجيل الدخول
+        </Link>
       </section>
     </main>
   )

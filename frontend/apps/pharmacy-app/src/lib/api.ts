@@ -8,6 +8,18 @@ function csrfHeaders(): HeadersInit {
 
 let refreshPromise: Promise<boolean> | null = null
 
+export class ApiError extends Error {
+  code: string
+  status: number
+
+  constructor(message: string, code: string, status: number) {
+    super(message)
+    this.name = 'ApiError'
+    this.code = code
+    this.status = status
+  }
+}
+
 async function refreshSession(): Promise<boolean> {
   if (!refreshPromise) {
     refreshPromise = fetch(`${API_BASE_URL}/auth/refresh`, {
@@ -38,7 +50,13 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}, c
     if (await refreshSession()) return apiFetch<T>(endpoint, options, false)
   }
   const body = await response.json().catch(() => ({}))
-  if (!response.ok) throw new Error(body.message || 'API request failed')
+  if (!response.ok) {
+    throw new ApiError(
+      body.message || 'API request failed',
+      body.code || body.error || 'API_ERROR',
+      response.status,
+    )
+  }
   return body as T
 }
 
@@ -47,6 +65,12 @@ export const authApi = {
     return apiFetch<{ user: Record<string, unknown>; expires_in: number }>('/auth/login', {
       method: 'POST',
       body: JSON.stringify({ email, password }),
+    })
+  },
+  resendVerification(email: string) {
+    return apiFetch<{ message: string }>('/auth/resend-verification', {
+      method: 'POST',
+      body: JSON.stringify({ email }),
     })
   },
   me() {

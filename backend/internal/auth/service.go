@@ -158,6 +158,9 @@ func (s *Service) Login(ctx context.Context, email, password, principalType, ten
 		}
 		return nil, nil, ErrInvalidCredentials
 	}
+	if !principal.EmailVerified {
+		return nil, nil, ErrEmailNotVerified
+	}
 
 	if err := s.recordSuccessfulLogin(ctx, principal); err != nil {
 		return nil, nil, fmt.Errorf("update login state: %w", err)

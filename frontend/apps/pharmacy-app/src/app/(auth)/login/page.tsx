@@ -4,6 +4,7 @@ import { FormEvent, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
+import { ApiError } from '@/lib/api'
 
 export default function LoginPage() {
   const router = useRouter()
@@ -21,6 +22,10 @@ export default function LoginPage() {
       await login(email, password)
       router.push('/')
     } catch (err) {
+      if (err instanceof ApiError && err.code === 'EMAIL_NOT_VERIFIED') {
+        router.replace(`/verify-email?email=${encodeURIComponent(email.trim())}`)
+        return
+      }
       setError(err instanceof Error ? err.message : 'فشل تسجيل الدخول')
     } finally {
       setLoading(false)

@@ -5,8 +5,11 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"net/http"
+	"net/url"
 	"strings"
+	"time"
 )
 
 type mailer struct {
@@ -21,7 +24,7 @@ func newMailer(cfg Config) *mailer {
 	return &mailer{
 		apiKey: cfg.BrevoAPIKey, fromEmail: cfg.MailFromEmail,
 		fromName: cfg.MailFromName, appURL: strings.TrimRight(cfg.PublicAppURL, "/"),
-		client: &http.Client{},
+		client: &http.Client{Timeout: 15 * time.Second},
 	}
 }
 
@@ -54,13 +57,18 @@ func (m *mailer) send(ctx context.Context, recipient, subject, html string) erro
 	}
 	defer response.Body.Close()
 	if response.StatusCode < 200 || response.StatusCode >= 300 {
-		return fmt.Errorf("brevo returned status %d", response.StatusCode)
+		details, _ := io.ReadAll(io.LimitReader(response.Body, 4096))
+		detail := strings.TrimSpace(string(details))
+		if detail == "" {
+			return fmt.Errorf("brevo returned status %d", response.StatusCode)
+		}
+		return fmt.Errorf("brevo returned status %d: %s", response.StatusCode, detail)
 	}
 	return nil
 }
 
 func (m *mailer) verificationEmail(ctx context.Context, email, token string) error {
-	link := fmt.Sprintf("%s/verify-email?token=%s", m.appURL, token)
+	link := fmt.Sprintf("%s/verify-email?token=%s", m.appURL, url.QueryEscape(token))
 	return m.send(ctx, email, "Verify your Pharmacy OS email", fmt.Sprintf(
 		`<p>Welcome to Pharmacy OS.</p><p>Verify your email by clicking <a href="%s">this link</a>.</p><p>This link expires in 24 hours.</p>`,
 		link,
