@@ -153,17 +153,23 @@ Conversions belong to the product because packaging differs by manufacturer and 
 The system must never assume that every box contains the same number of strips or
 that every strip contains the same number of tablets.
 
-## 6. Controlled configuration, not employee-created values
+## 6. Pharmacy-owned products and controlled options
 
-Employees should select values from prepared catalogs. They should not create new
-categories, dosage forms, packaging levels, or conversion rules during product
-entry.
+The product catalog belongs to the pharmacy. It is not a global catalog owned by
+`super_admin`, and `super_admin` is not the business owner of a pharmacy's products,
+packaging, prices, or stock.
 
-The intended separation is:
+The user working inside the pharmacy is the person who adds and edits the product.
+The exact pharmacy-role permission can be defined separately, but the data ownership
+boundary is clear: the product is tenant-scoped to its pharmacy.
 
-### System/product catalog
+Employees should select classification and unit labels from prepared system options
+instead of inventing arbitrary values during routine work. This does **not** make
+the product itself global. It only keeps the vocabulary consistent.
 
-Managed by the appropriate administrative role:
+### System-provided options
+
+These are reusable options supplied by the application:
 
 - product categories;
 - dosage forms;
@@ -173,9 +179,12 @@ Managed by the appropriate administrative role:
 - controlled-substance classifications;
 - allowed sale-unit policies.
 
-### Product definition
+The system options are not a shared product record. They are the available building
+blocks from which each pharmacy creates its own products.
 
-The selected catalog values and product-specific rules:
+### Pharmacy-owned product definition
+
+The pharmacy user creates and edits:
 
 - name and commercial identity;
 - generic name and active ingredients;
@@ -188,9 +197,7 @@ The selected catalog values and product-specific rules:
 - allowed sale units;
 - canonical inventory unit.
 
-### Pharmacy-specific settings
-
-Configured per pharmacy or company, without changing the central definition:
+The pharmacy user also owns:
 
 - enabled/discontinued state;
 - purchase cost;
@@ -201,8 +208,10 @@ Configured per pharmacy or company, without changing the central definition:
 - preferred supplier;
 - whether a lower package level is allowed to be sold.
 
-The exact authority boundaries — platform administrator versus company
-administrator — must be confirmed before implementation.
+The number of units inside a package is also part of this pharmacy-owned product
+definition. For example, the pharmacy user may define that this particular product's
+box contains four strips. It must not be assumed from a generic global product
+record.
 
 ## 7. Pricing rules to preserve
 
@@ -293,11 +302,15 @@ The repository already contains an earlier product/inventory foundation:
 - `stock_movements`
 
 It also contains an older, simpler medication model. The new work must not create a
-second competing inventory system. Before implementation we must decide whether to:
+second competing inventory system. The existing `global_products` table is a
+technical artifact from a generic/shared-catalog direction and does not match the
+confirmed pharmacy-owned business model as the final source of truth. Before
+implementation we must decide whether to:
 
-1. evolve the existing product/inventory foundation;
-2. migrate and retire the old medication model; or
-3. keep a compatibility layer temporarily while all consumers move to the new model.
+1. evolve the existing product/inventory foundation into pharmacy-owned products;
+2. migrate and retire the old medication and shared-global-product models; or
+3. keep a compatibility layer temporarily while all consumers move to the
+   pharmacy-owned model.
 
 The current `unit_conversions` table is a useful starting point, but by itself it
 does not fully enforce:
@@ -317,9 +330,9 @@ These are design concepts, not an instruction to create them yet:
 1. **Controlled product categories**
 2. **Controlled dosage forms**
 3. **Controlled unit/packaging types**
-4. **Global product identity**
+4. **Pharmacy-owned product identity**
 5. **Product packaging levels and containment rules**
-6. **Pharmacy product settings**
+6. **Pharmacy product pricing and operational settings**
 7. **Branch inventory batches**
 8. **Stock movement ledger**
 9. **Future sales-line unit selection**
@@ -331,16 +344,17 @@ never read or change another pharmacy's product settings, batches, or prices.
 
 The following decisions are intentionally open:
 
-1. Is the product catalog centrally curated by `super_admin`, or may
-   `company_admin` create products after selecting controlled values?
+1. Which existing pharmacy role is allowed to add and edit pharmacy products?
+   This is a permission question inside the pharmacy, not a `super_admin` ownership
+   question.
 2. Is the canonical inventory unit the smallest permitted sale unit? This is the
    recommended rule.
 3. For tablet products, should the initial release support:
    - box + strip only;
    - box + strip + tablet;
    - or any configured hierarchy?
-4. Should a pharmacy be able to override package counts for a product, or are
-   package counts fixed by the central product definition?
+4. Should the pharmacy user be able to edit package counts while editing the
+   pharmacy-owned product? The current understanding is yes.
 5. Should prices be derived by conversion by default with explicit package-level
    overrides?
 6. Are batch number and expiry required for all medicines, optional for cosmetics and

@@ -4,3 +4,4 @@
 - [Auth query qualification](auth-query-qualification.md) — joined authentication queries must qualify shared columns such as email or failures surface as misleading credential errors.
 - [Tenant-scoped dashboards](tenant-scoped-dashboards.md) — dashboard reads must derive tenant scope from the authenticated principal, never client-supplied IDs or demo fallbacks.
 - [Multi-platform deployment](multi-platform-deployment.md) — Vercel should proxy relative `/api/v1` requests to a public backend via `BACKEND_INTERNAL_URL`.
+- [Pharmacy product ownership](pharmacy-product-ownership.md) — products, packaging, prices, and stock are pharmacy-owned; Super Admin is not the product business owner.
