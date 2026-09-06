@@ -152,9 +152,6 @@ func (s *Service) Login(ctx context.Context, email, password, principalType, ten
 	if !principal.IsActive {
 		return nil, nil, ErrAccountInactive
 	}
-	if !principal.EmailVerified {
-		return nil, nil, ErrEmailNotVerified
-	}
 	if principal.PasswordHash == "" || bcrypt.CompareHashAndPassword([]byte(principal.PasswordHash), []byte(password)) != nil {
 		if locked, updateErr := s.recordFailedLogin(ctx, principal); updateErr == nil && locked {
 			return nil, nil, ErrAccountLocked
