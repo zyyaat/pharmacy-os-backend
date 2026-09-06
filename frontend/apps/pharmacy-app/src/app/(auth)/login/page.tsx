@@ -1,18 +1,30 @@
 "use client"
 
-import { FormEvent, useState } from 'react'
+import { FormEvent, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useAuth } from '@/hooks/useAuth'
 import { ApiError } from '@/lib/api'
+import { getSafeRedirectPath } from '@/lib/navigation'
 
 export default function LoginPage() {
   const router = useRouter()
-  const { login } = useAuth()
+  const { login, user, loading: authLoading } = useAuth()
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
+  const [redirectPath, setRedirectPath] = useState<string | null>(null)
+
+  useEffect(() => {
+    setRedirectPath(getSafeRedirectPath(new URLSearchParams(window.location.search).get('next')))
+  }, [])
+
+  useEffect(() => {
+    if (!authLoading && user && redirectPath) {
+      router.replace(redirectPath)
+    }
+  }, [authLoading, redirectPath, router, user])
 
   async function handleSubmit(event: FormEvent) {
     event.preventDefault()
@@ -20,7 +32,7 @@ export default function LoginPage() {
     setLoading(true)
     try {
       await login(email, password)
-      router.push('/')
+      router.replace(redirectPath || '/')
     } catch (err) {
       if (err instanceof ApiError && err.code === 'EMAIL_NOT_VERIFIED') {
         router.replace(`/verify-email?email=${encodeURIComponent(email.trim())}`)
@@ -30,6 +42,14 @@ export default function LoginPage() {
     } finally {
       setLoading(false)
     }
+  }
+
+  if (authLoading || (user && redirectPath)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
+        جاري التحقق من الجلسة...
+      </div>
+    )
   }
 
   return (

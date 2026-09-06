@@ -1,6 +1,6 @@
 "use client";
 
-import React, { useState } from "react";
+import React, { useEffect, useState } from "react";
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { 
@@ -15,18 +15,32 @@ import { Button } from "@/components/ui";
 import { Input } from "@/components/ui";
 import { useAuth } from "@/hooks/useAuth";
 import { ApiError } from "@/lib/api";
+import { getSafeRedirectPath } from "@/lib/navigation";
 
 export default function LoginPage() {
   const [showPassword, setShowPassword] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const router = useRouter();
-  const { login } = useAuth();
+  const { login, user, loading: authLoading } = useAuth();
+  const [redirectPath, setRedirectPath] = useState<string | null>(null);
   const [formData, setFormData] = useState({
     email: "",
     password: "",
     rememberMe: false,
   });
+
+  useEffect(() => {
+    setRedirectPath(
+      getSafeRedirectPath(new URLSearchParams(window.location.search).get("next")),
+    );
+  }, []);
+
+  useEffect(() => {
+    if (!authLoading && user && redirectPath) {
+      router.replace(redirectPath);
+    }
+  }, [authLoading, redirectPath, router, user]);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -42,7 +56,7 @@ export default function LoginPage() {
     
     try {
       await login({ email: formData.email, password: formData.password });
-      router.push("/");
+      router.replace(redirectPath || "/");
     } catch (err) {
       if (err instanceof ApiError && err.code === "EMAIL_NOT_VERIFIED") {
         router.replace(`/verify-email?email=${encodeURIComponent(formData.email.trim())}`);
@@ -53,6 +67,14 @@ export default function LoginPage() {
       setIsLoading(false);
     }
   };
+
+  if (authLoading || (user && redirectPath)) {
+    return (
+      <div className="flex min-h-screen items-center justify-center bg-background text-muted-foreground">
+        جاري التحقق من الجلسة...
+      </div>
+    );
+  }
 
   return (
     <div className="min-h-screen flex items-center justify-center bg-background relative overflow-hidden">
