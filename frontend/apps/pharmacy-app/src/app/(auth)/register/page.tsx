@@ -3,6 +3,7 @@
 import { FormEvent, useState } from 'react'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { apiFetch } from '@/lib/api'
 
 type RegisterForm = {
   companyName: string
@@ -45,10 +46,8 @@ export default function RegisterPage() {
 
     setLoading(true)
     try {
-      const response = await fetch('/api/v1/auth/register', {
+      const body = await apiFetch<{ email_verification_sent?: boolean }>('/auth/register', {
         method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           company_name: form.companyName,
           company_email: form.companyEmail,
@@ -58,8 +57,6 @@ export default function RegisterPage() {
           password: form.password,
         }),
       })
-      const body = await response.json().catch(() => ({}))
-      if (!response.ok) throw new Error(body.message || 'تعذر إنشاء الحساب')
       const verificationSent = body.email_verification_sent !== false
       router.replace(
         `/verify-email?email=${encodeURIComponent(form.email.trim())}&sent=${verificationSent ? '1' : '0'}`,
