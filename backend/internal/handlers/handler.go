@@ -77,9 +77,13 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 		// id in the URL or query string.
 		pharmacy := v1.Group("/pharmacy")
 		pharmacy.Use(h.auth.Middleware())
+		pharmacy.GET("/context", h.GetPharmacyContext)
 		pharmacy.GET("/dashboard/stats", h.GetPharmacyDashboardStats)
 		pharmacy.GET("/dashboard/activity", h.GetPharmacyDashboardActivity)
 		pharmacy.GET("/inventory", h.GetPharmacyInventory)
+		pharmacy.GET("/employees", h.ListPharmacyEmployees)
+		pharmacy.GET("/branches", h.ListPharmacyBranches)
+		pharmacy.GET("/attendance", h.ListPharmacyAttendance)
 	}
 
 	// Domain routes use the central opaque session created by /auth/login.

@@ -7,10 +7,11 @@ import { BarChart3, CalendarCheck, ChevronLeft, ChevronRight, LayoutDashboard, L
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui'
 import { useAuth } from '@/hooks/useAuth'
+import { usePharmacyContext } from '@/hooks/usePharmacyContext'
 
 const items = [
   { title: 'لوحة التحكم', href: '/', icon: LayoutDashboard },
-  { title: 'المخزون والأدوية', href: '/inventory', icon: Package, badge: '27' },
+  { title: 'المخزون والأدوية', href: '/inventory', icon: Package },
   { title: 'الموظفون', href: '/employees', icon: Users },
   { title: 'الحضور والانصراف', href: '/attendance', icon: CalendarCheck },
   { title: 'الفروع', href: '/branches', icon: Store },
@@ -21,6 +22,7 @@ export default function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boo
   const pathname = usePathname()
   const router = useRouter()
   const { logout } = useAuth()
+  const { context } = usePharmacyContext()
   const [collapsed, setCollapsed] = useState(false)
   const [loggingOut, setLoggingOut] = useState(false)
 
@@ -56,8 +58,12 @@ export default function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boo
         <div className="border-b border-border p-3">
           <div className="rounded-lg bg-primary/10 p-3">
             <p className="text-xs text-muted-foreground">الصيدلية الحالية</p>
-            <p className="mt-1 truncate text-sm font-semibold">صيدليات الأمل</p>
-            <p className="mt-1 truncate text-xs text-muted-foreground">الفرع الرئيسي · القاهرة</p>
+            <p className="mt-1 truncate text-sm font-semibold">{context?.pharmacy.name || 'جاري تحميل الصيدلية...'}</p>
+            <p className="mt-1 truncate text-xs text-muted-foreground">
+              {context?.branch
+                ? `${context.branch.name}${context.branch.city ? ` · ${context.branch.city}` : ''}`
+                : context?.pharmacy.city || 'لا يوجد فرع محدد'}
+            </p>
           </div>
         </div>
       )}
@@ -79,7 +85,11 @@ export default function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boo
               {!collapsed && (
                 <>
                   <span className="flex-1">{item.title}</span>
-                  {item.badge && <span className={cn('rounded-full px-2 py-0.5 text-xs', active ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground')}>{item.badge}</span>}
+                  {item.href === '/inventory' && context && (
+                    <span className={cn('rounded-full px-2 py-0.5 text-xs', active ? 'bg-primary/20 text-primary' : 'bg-muted text-muted-foreground')}>
+                      {new Intl.NumberFormat('ar-EG').format(context.pharmacy.product_count)}
+                    </span>
+                  )}
                 </>
               )}
               {collapsed && <div className="absolute right-full z-50 mr-2 hidden whitespace-nowrap rounded-lg border border-border bg-popover px-3 py-2 text-sm shadow-lg group-hover:block">{item.title}</div>}
@@ -99,8 +109,10 @@ export default function Sidebar({ mobileOpen, onMobileClose }: { mobileOpen: boo
           <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full bg-primary/10 text-sm font-medium text-primary">م</div>
           {!collapsed && (
             <div className="min-w-0 flex-1">
-              <p className="truncate text-sm font-medium">محمد أحمد</p>
-              <p className="truncate text-xs text-muted-foreground">مدير الصيدلية</p>
+              <p className="truncate text-sm font-medium">
+                {context?.user.display_name || `${context?.user.first_name || ''} ${context?.user.last_name || ''}`.trim() || 'المستخدم'}
+              </p>
+              <p className="truncate text-xs text-muted-foreground">{context?.user.role || 'حساب الصيدلية'}</p>
             </div>
           )}
           {!collapsed && (

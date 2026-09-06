@@ -102,7 +102,95 @@ export interface PharmacyDashboardStats {
   }>
 }
 
+export interface PharmacyContext {
+  pharmacy: {
+    id: string
+    name: string
+    city: string
+    address: string
+    phone: string
+    product_count: number
+  }
+  branch: {
+    id: string
+    name: string
+    city: string
+  } | null
+  user: {
+    id: string
+    email: string
+    first_name: string
+    last_name: string
+    display_name: string
+    role: string
+  }
+}
+
+export interface PharmacyInventoryItem {
+  batch_id: string
+  pharmacy_product_id: string
+  global_product_id: string
+  product_name: string
+  generic_name: string
+  brand_name: string
+  barcode: string
+  dosage_form: string
+  strength: string
+  batch_number: string
+  unit: string
+  quantity: number
+  cost_per_unit: number
+  total_cost: number
+  expiry_date: string | null
+  days_until_expiry: number | null
+  selling_price: number
+  min_stock_level: number
+  branch_name: string
+  status: string
+}
+
+export interface PharmacyEmployee {
+  id: string
+  first_name: string
+  last_name: string
+  display_name: string
+  email: string
+  phone: string
+  job_title: string
+  status: string
+  branch_id: string
+  branch_name: string
+  created_at: string
+}
+
+export interface PharmacyBranch {
+  id: string
+  name: string
+  code: string
+  phone: string
+  email: string
+  address: string
+  city: string
+  is_active: boolean
+  manager_name: string
+}
+
+export interface PharmacyAttendance {
+  id: string
+  employee_id: string
+  employee_name: string
+  branch_id: string
+  branch_name: string
+  clock_in: string
+  clock_out?: string
+  total_minutes?: number
+  status: string
+}
+
 export const pharmacyApi = {
+  getContext() {
+    return apiFetch<PharmacyContext>('/pharmacy/context')
+  },
   getDashboardStats() {
     return apiFetch<PharmacyDashboardStats>('/pharmacy/dashboard/stats')
   },
@@ -110,6 +198,15 @@ export const pharmacyApi = {
     return apiFetch<{ data: Array<Record<string, unknown>> }>('/pharmacy/dashboard/activity')
   },
   getInventory() {
-    return apiFetch<{ data: Array<Record<string, unknown>> }>('/pharmacy/inventory')
+    return apiFetch<{ data: PharmacyInventoryItem[] }>('/pharmacy/inventory')
+  },
+  getEmployees() {
+    return apiFetch<{ data: PharmacyEmployee[]; total: number }>('/pharmacy/employees')
+  },
+  getBranches() {
+    return apiFetch<{ data: PharmacyBranch[]; total: number }>('/pharmacy/branches')
+  },
+  getAttendance() {
+    return apiFetch<{ data: PharmacyAttendance[]; total: number }>('/pharmacy/attendance')
   },
 }
