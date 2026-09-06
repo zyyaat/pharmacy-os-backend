@@ -60,6 +60,26 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 
 	if h.auth != nil {
 		h.auth.RegisterRoutes(v1)
+
+		// Company dashboard data is always scoped by the authenticated
+		// company session. The handlers derive the company id from the
+		// principal instead of accepting it from the client.
+		dashboard := v1.Group("/dashboard")
+		dashboard.Use(h.auth.Middleware())
+		dashboard.Use(appmiddleware.CompanySessionContext())
+		dashboard.Use(appmiddleware.CompanyDBPoolContext(h.db))
+		dashboard.Use(appmiddleware.RequireCompanyPermission("companies.view"))
+		dashboard.GET("/stats", h.GetDashboardStats)
+		dashboard.GET("/activity", h.GetRecentActivity)
+
+		// Pharmacy data is scoped from the authenticated employee/company
+		// principal. These endpoints intentionally do not accept a pharmacy
+		// id in the URL or query string.
+		pharmacy := v1.Group("/pharmacy")
+		pharmacy.Use(h.auth.Middleware())
+		pharmacy.GET("/dashboard/stats", h.GetPharmacyDashboardStats)
+		pharmacy.GET("/dashboard/activity", h.GetPharmacyDashboardActivity)
+		pharmacy.GET("/inventory", h.GetPharmacyInventory)
 	}
 
 	// Domain routes use the central opaque session created by /auth/login.

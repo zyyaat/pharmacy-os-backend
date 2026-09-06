@@ -56,3 +56,30 @@ export const authApi = {
     return apiFetch('/auth/logout', { method: 'POST' })
   },
 }
+
+export interface PharmacyDashboardStats {
+  totalProducts: number
+  lowStockCount: number
+  activeEmployees: number
+  activeToday: number
+  salesUnitsToday: number
+  lowStockItems: Array<{
+    name: string
+    generic_name: string
+    quantity: number
+    min_stock_level: number
+    status: string
+  }>
+}
+
+export const pharmacyApi = {
+  getDashboardStats() {
+    return apiFetch<PharmacyDashboardStats>('/pharmacy/dashboard/stats')
+  },
+  getDashboardActivity() {
+    return apiFetch<{ data: Array<Record<string, unknown>> }>('/pharmacy/dashboard/activity')
+  },
+  getInventory() {
+    return apiFetch<{ data: Array<Record<string, unknown>> }>('/pharmacy/inventory')
+  },
+}

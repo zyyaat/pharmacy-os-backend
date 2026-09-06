@@ -1,3 +1,4 @@
 - [Replit Go publishing](go-publishing.md) — imported Go services may need an available Replit Go module and newer dependencies before build/publish succeeds.
 - [Authentication ownership](authentication-ownership.md) — Marketing is informational; Pharmacy App owns registration, login, and authenticated account flows.
 - [Auth query qualification](auth-query-qualification.md) — joined authentication queries must qualify shared columns such as email or failures surface as misleading credential errors.
+- [Tenant-scoped dashboards](tenant-scoped-dashboards.md) — dashboard reads must derive tenant scope from the authenticated principal, never client-supplied IDs or demo fallbacks.
