@@ -14,3 +14,17 @@ mtime_ms = 1788624996567
 storage_uri = "gcs://replit-rams-assets-picard/rams/assets/repl:88578e20-29e2-4f8b-a275-a5d9b2f4b331/6dbe1dfa-0b2e-470a-9a6b-88311512a269/53e0b05c-0a9d-4055-bf36-e4f65132ffd6"
 storage_version_token = "1788624997182473"
 content_type = "application/octet-stream"
+
+[[outputs]]
+id = "yUb6G0ixqLX6r053rSvVQ"
+uri = "file://backups/pharmacy-os-development-2026-09-06.sql.gz"
+type = "unspecified"
+title = "Pharmacy OS development database backup — 2026-09-06"
+description = "Compressed plain SQL backup of the current development database after revoking active Super Admin sessions and applying the pharmacy access fix. SHA-256: fe5cfd0eaa93290a7c1a6612f57fbb36729a417b5a70b4265af390658df6690b"
+logical_id = "97c73795-4147-4376-9907-67f1a6453c01"
+content_hash = "sha256:fe5cfd0eaa93290a7c1a6612f57fbb36729a417b5a70b4265af390658df6690b"
+size = 21632
+mtime_ms = 1788678651701
+storage_uri = "gcs://replit-rams-assets-kirk/rams/assets/repl:8c39df70-cee0-4919-9334-a235bc3653a1/97c73795-4147-4376-9907-67f1a6453c01/901b307d-c085-4db4-8334-54aa0be1ee17"
+storage_version_token = "1788678668854850"
+content_type = "application/octet-stream"

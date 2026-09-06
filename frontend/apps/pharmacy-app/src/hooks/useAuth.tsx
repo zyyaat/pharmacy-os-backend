@@ -8,7 +8,7 @@ export type PharmacyUser = Record<string, unknown> & {
 }
 
 function isPharmacyUser(user: PharmacyUser): boolean {
-  return user.account_type === 'employee' || user.account_type === 'company_user'
+  return user.account_type === 'employee'
 }
 
 interface AuthContextValue {

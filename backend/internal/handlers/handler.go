@@ -88,6 +88,7 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 		// id in the URL or query string.
 		pharmacy := v1.Group("/pharmacy")
 		pharmacy.Use(h.auth.Middleware())
+		pharmacy.Use(auth.RequireEmployeePrincipal())
 		pharmacy.GET("/context", h.GetPharmacyContext)
 		pharmacy.GET("/dashboard/stats", h.GetPharmacyDashboardStats)
 		pharmacy.GET("/dashboard/activity", h.GetPharmacyDashboardActivity)

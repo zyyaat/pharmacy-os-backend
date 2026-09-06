@@ -43,6 +43,23 @@ func (s *Service) Middleware() gin.HandlerFunc {
 	}
 }
 
+// RequireEmployeePrincipal restricts pharmacy application routes to employee
+// identities. Company users, including platform/company super administrators,
+// must use the admin application and must never receive pharmacy-scoped data.
+func RequireEmployeePrincipal() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		principal, ok := PrincipalFromContext(c)
+		if !ok || principal.Type != EmployeePrincipal || principal.PharmacyID == "" {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"error":   "pharmacy_employee_required",
+				"message": "An active pharmacy employee account is required",
+			})
+			return
+		}
+		c.Next()
+	}
+}
+
 // CSRF protects cookie-authenticated state-changing requests with a
 // double-submit token. GET, HEAD and OPTIONS remain safe without the header.
 func CSRF() gin.HandlerFunc {
