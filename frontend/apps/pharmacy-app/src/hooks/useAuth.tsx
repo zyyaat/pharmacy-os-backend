@@ -7,8 +7,8 @@ export type PharmacyUser = Record<string, unknown> & {
   account_type?: 'company_user' | 'employee'
 }
 
-function isPharmacyUser(user: PharmacyUser): boolean {
-  return user.account_type === 'employee'
+function isPharmacyAccount(user: PharmacyUser): boolean {
+  return user.account_type === 'employee' || user.account_type === 'company_user'
 }
 
 interface AuthContextValue {
@@ -32,7 +32,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true)
       setError(null)
       const response = await authApi.me()
-      if (!isPharmacyUser(response.user)) {
+      if (!isPharmacyAccount(response.user)) {
         throw new Error('نوع الحساب غير مدعوم في تطبيق الصيدلية')
       }
       setUser(response.user)
@@ -52,7 +52,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setLoading(true)
       setError(null)
       const response = await authApi.login(email, password)
-      if (!isPharmacyUser(response.user)) {
+      if (!isPharmacyAccount(response.user)) {
         throw new Error('هذا الحساب غير مخصص لتطبيق الصيدلية')
       }
       setUser(response.user)

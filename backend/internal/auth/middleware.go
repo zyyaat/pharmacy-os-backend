@@ -43,9 +43,29 @@ func (s *Service) Middleware() gin.HandlerFunc {
 	}
 }
 
-// RequireEmployeePrincipal restricts pharmacy application routes to employee
-// identities. Company users, including platform/company super administrators,
-// must use the admin application and must never receive pharmacy-scoped data.
+// RequirePharmacyPrincipal allows an authenticated company owner or pharmacy
+// employee to access the pharmacy attached to the current principal. The
+// pharmacy scope is always derived from the session, never from the request.
+func RequirePharmacyPrincipal() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		principal, ok := PrincipalFromContext(c)
+		if !ok ||
+			(principal.Type != EmployeePrincipal && principal.Type != CompanyUserPrincipal) ||
+			principal.PharmacyID == "" {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"error":   "pharmacy_account_required",
+				"message": "An active pharmacy account is required",
+			})
+			return
+		}
+		c.Next()
+	}
+}
+
+// RequireEmployeePrincipal restricts sensitive pharmacy operations to employee
+// identities. Company users can read the pharmacy dashboard through
+// RequirePharmacyPrincipal, but they do not automatically gain employee-only
+// mutation privileges.
 func RequireEmployeePrincipal() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		principal, ok := PrincipalFromContext(c)
