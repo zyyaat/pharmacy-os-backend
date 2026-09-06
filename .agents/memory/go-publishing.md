@@ -3,8 +3,8 @@ name: Replit Go publishing
 description: Environment constraints encountered when running and publishing this imported Go API on Replit.
 ---
 
-Imported Go services can declare a newer toolchain than the workspace's default module. Pin an available compatible Go module, set `GOTOOLCHAIN=local`, and use vendored dependencies when the package firewall blocks automatic toolchain downloads.
+Imported Go services can declare a newer toolchain than the workspace's default module. When the declared toolchain is not installed, use `GOTOOLCHAIN=auto` with public checksum verification and vendored dependencies; local-only mode will fail before the server starts.
 
-**Why:** Automatic toolchain download failed when the imported project declared Go 1.25 but the workspace initially exposed Go 1.21 and disabled checksum verification. An explicitly installed Go 1.25 module and vendor mode made local and workflow builds deterministic.
+**Why:** This workspace exposed Go 1.21 while the imported project declared Go 1.25. Automatic download succeeded only after enabling `GOSUMDB=sum.golang.org`; the environment's default checksum-disabled setting prevented startup.
 
-**How to apply:** Check available Go modules early, pin the selected module in `.replit`, and make run commands local/vendor-based. Keep deployment settings explicit: compile a production binary and run that binary. Avoid output names or paths excluded by `.gitignore`, because the build output may be absent when the publish runtime starts.
+**How to apply:** Check the declared Go version early, use `GOTOOLCHAIN=auto GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct` for workflows and local scripts, and keep `GOFLAGS=-mod=vendor`. Keep deployment settings explicit: compile a production binary and run that binary.

@@ -16,18 +16,18 @@ Each frontend has its own independent workflow. The selected Run workflow is
 while `Backend API` provides the shared Go API:
 
 ```bash
-cd frontend/apps/admin-dashboard && npm ci
-cd frontend/apps/pharmacy-app && npm ci
-cd frontend/apps/marketing && npm ci
-GOTOOLCHAIN=local GOFLAGS=-mod=vendor CGO_ENABLED=0 bash scripts/run-backend.sh
-cd frontend/apps/admin-dashboard && NEXT_PUBLIC_API_URL=/api/v1 npx next dev -p 5000
+cd frontend/apps/admin-dashboard && npm install
+cd frontend/apps/pharmacy-app && npm install
+cd frontend/apps/marketing && npm install
+cd backend && GOTOOLCHAIN=auto GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct GOFLAGS=-mod=vendor go run ./cmd/server
+cd frontend/apps/admin-dashboard && NEXT_PUBLIC_API_URL=/api/v1 npm run dev -- -p 5000
 ```
 
 The backend can also be started with one stable command from the repository
 root:
 
 ```bash
-bash scripts/run-backend.sh
+cd backend && GOTOOLCHAIN=auto GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct GOFLAGS=-mod=vendor go run ./cmd/server
 ```
 
 The Replit-managed PostgreSQL database is connected automatically through `DATABASE_URL` and the `PG*` environment variables. The active development schema is created by migrations `00000000000001_foundation.sql` through `00000000000006_go_auth.sql`; `00000000000001_init.sql` is an older legacy schema and is not part of the active migration sequence.
