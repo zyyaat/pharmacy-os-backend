@@ -20,6 +20,8 @@ import {
 } from "lucide-react";
 import { Button } from "@/components/ui";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
+import { useAuth } from "@/hooks/useAuth";
+import { useAnalytics } from "@/hooks/useAnalytics";
 
 interface SidebarItem {
   title: string;
@@ -38,13 +40,11 @@ const sidebarItems: SidebarItem[] = [
     title: "الشركات",
     href: "/companies",
     icon: <Building2 className="h-5 w-5" />,
-    badge: "12",
   },
   {
     title: "المستخدمين",
     href: "/users",
     icon: <Users className="h-5 w-5" />,
-    badge: "48",
   },
   {
     title: "الصلاحيات",
@@ -79,6 +79,8 @@ interface SidebarProps {
 
 export function Sidebar({ className, mobileOpen: controlledMobileOpen, onMobileClose }: SidebarProps) {
   const pathname = usePathname();
+  const { user, logout } = useAuth();
+  const { stats } = useAnalytics();
   const [collapsed, setCollapsed] = useState(false);
   const [internalMobileOpen, setInternalMobileOpen] = useState(false);
   
@@ -93,6 +95,12 @@ export function Sidebar({ className, mobileOpen: controlledMobileOpen, onMobileC
       setInternalMobileOpen(true);
     }
   };
+
+  const items = sidebarItems.map((item) => item.href === "/companies"
+    ? { ...item, badge: stats?.totalCompanies }
+    : item.href === "/users"
+      ? { ...item, badge: stats?.totalUsers }
+      : item)
 
   const SidebarContent = (
     <div
@@ -142,7 +150,7 @@ export function Sidebar({ className, mobileOpen: controlledMobileOpen, onMobileC
       {/* Navigation */}
       <nav className="flex-1 space-y-1 p-3 overflow-y-auto">
         <div className="space-y-1">
-          {sidebarItems.map((item) => {
+          {items.map((item) => {
             const isActive = pathname === item.href || 
               (item.href !== "/" && pathname.startsWith(item.href));
             
@@ -229,19 +237,19 @@ export function Sidebar({ className, mobileOpen: controlledMobileOpen, onMobileC
           collapsed ? "justify-center" : ""
         )}>
           <Avatar className="h-9 w-9">
-            <AvatarImage src="/avatar.png" alt="User" />
+             <AvatarImage src={user?.avatarUrl} alt={user?.displayName || "User"} />
             <AvatarFallback className="bg-primary/10 text-primary text-sm">
-              م
+               {(user?.displayName || user?.email || "م").charAt(0).toUpperCase()}
             </AvatarFallback>
           </Avatar>
           {!collapsed && (
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-medium truncate">مدير النظام</p>
-              <p className="text-xs text-muted-foreground truncate">admin@pharmacy.os</p>
+               <p className="text-sm font-medium truncate">{user?.displayName || "مدير النظام"}</p>
+               <p className="text-xs text-muted-foreground truncate" dir="ltr">{user?.email || ""}</p>
             </div>
           )}
           {!collapsed && (
-            <Button variant="ghost" size="icon" className="shrink-0 text-muted-foreground hover:text-destructive">
+             <Button variant="ghost" size="icon" onClick={() => void logout()} className="shrink-0 text-muted-foreground hover:text-destructive" title="تسجيل الخروج">
               <LogOut className="h-4 w-4" />
             </Button>
           )}

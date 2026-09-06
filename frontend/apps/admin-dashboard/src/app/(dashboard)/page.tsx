@@ -2,7 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { Activity, ArrowUpRight, Building2, CheckCircle, CreditCard, Users } from 'lucide-react'
+import { Activity, ArrowUpRight, Building2, CheckCircle, CreditCard, Store, Users, ShieldAlert } from 'lucide-react'
 import { Badge, Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui'
 import { companiesApi } from '@/lib/api'
 import { useAnalytics } from '@/hooks/useAnalytics'
@@ -45,8 +45,10 @@ export default function DashboardPage() {
     ? [
         { label: 'إجمالي الشركات', value: stats.totalCompanies, icon: Building2 },
         { label: 'الشركات النشطة', value: stats.activeCompanies, icon: CheckCircle },
-        { label: 'المستخدمون النشطون', value: stats.activeUsers, icon: Users },
-        { label: 'الحسابات', value: stats.totalAccounts, icon: CreditCard },
+        { label: 'الشركات الموقوفة', value: stats.suspendedCompanies, icon: ShieldAlert },
+        { label: 'إجمالي الصيدليات', value: stats.totalPharmacies, icon: Store },
+        { label: 'إجمالي المستخدمين', value: stats.totalUsers, icon: Users },
+        { label: 'المستخدمون النشطون', value: stats.activeUsers, icon: CheckCircle },
       ]
     : []
 
@@ -54,7 +56,7 @@ export default function DashboardPage() {
     <div className="space-y-6 animate-fade-in">
       <div>
         <h1 className="text-2xl font-bold">لوحة التحكم</h1>
-        <p className="mt-1 text-muted-foreground">نظرة عامة مبنية على بيانات الحساب الحالي</p>
+        <p className="mt-1 text-muted-foreground">نظرة عامة على منصة Pharmacy OS بالكامل</p>
       </div>
 
       {(loading || companiesLoading) && <Card><CardContent className="p-8 text-center text-muted-foreground">جاري تحميل بيانات لوحة التحكم...</CardContent></Card>}
@@ -63,7 +65,7 @@ export default function DashboardPage() {
 
       {!loading && !error && stats && (
         <>
-          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div className="grid grid-cols-1 gap-4 sm:grid-cols-2 lg:grid-cols-3 xl:grid-cols-6">
             {cards.map((card) => (
               <Card key={card.label}>
                 <CardContent className="flex items-center justify-between p-6">

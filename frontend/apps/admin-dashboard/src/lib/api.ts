@@ -1,7 +1,7 @@
 // API Client for Backend (Go) - Real Implementation
 // This client connects to our Go backend for: CRUD operations, Admin tasks
 
-import type { Company, CompanyUser, DashboardStats, Account, ActivityItem } from '@/types'
+import type { Company, CompanyUser, DashboardStats, Account, ActivityItem, PlatformUser, PlatformPermission, PlatformRole } from '@/types'
 
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || '/api/v1').replace(/\/+$/, '')
 let refreshPromise: Promise<boolean> | null = null
@@ -83,7 +83,8 @@ export const authApi = {
       method: 'POST',
       body: JSON.stringify({ email, password, account_type: 'company_user' }),
     })
-    const user = response.data?.user || response.user
+    const rawUser = response.data?.user || response.user
+    const user = rawUser && normalizeCompanyUser(rawUser)
     if (!user) throw new Error('Login response did not include a user')
     return {
       user,
@@ -98,7 +99,7 @@ export const authApi = {
 
   async getProfile() {
     const response = await apiFetch<{ user: CompanyUser }>('/auth/me')
-    return response.user
+    return normalizeCompanyUser(response.user)
   },
 
   async changePassword(currentPassword: string, newPassword: string) {
@@ -107,6 +108,23 @@ export const authApi = {
       body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
     })
   },
+}
+
+function normalizeCompanyUser(user: unknown): CompanyUser {
+  const raw = (user || {}) as Record<string, unknown>
+  return {
+    ...(raw as Partial<CompanyUser>),
+    id: String(raw.id || ''),
+    email: String(raw.email || ''),
+    displayName: String(raw.displayName || raw.display_name || `${raw.first_name || ''} ${raw.last_name || ''}`.trim() || raw.email),
+    companyId: String(raw.companyId || raw.company_id || ''),
+    avatarUrl: raw.avatarUrl as string | undefined || raw.avatar_url as string | undefined,
+    isActive: Boolean(raw.isActive ?? raw.is_active),
+    lastLoginAt: raw.lastLoginAt as string | undefined || raw.last_login_at as string | undefined,
+    createdAt: String(raw.createdAt || raw.created_at || ''),
+    account_type: (raw.account_type || 'company_user') as CompanyUser['account_type'],
+    role: raw.role as CompanyUser['role'],
+  }
 }
 
 // ============================================
@@ -137,7 +155,8 @@ export const companiesApi = {
         total_users?: number
       }>
       pagination: { total: number; page: number; page_size: number; total_pages: number }
-    }>(`/companies${query ? `?${query}` : ''}`)
+       summary: { total: number; active: number; trial: number; suspended: number }
+    }>(`/platform-admin/companies${query ? `?${query}` : ''}`)
 
     return {
       data: response.data.map((company) => ({
@@ -156,6 +175,7 @@ export const companiesApi = {
       total: response.pagination.total,
       page: response.pagination.page,
       limit: response.pagination.page_size,
+      summary: response.summary,
     }
   },
 
@@ -187,6 +207,33 @@ export const companiesApi = {
 // ============================================
 
 export const usersApi = {
+  async listPlatform(params?: { page?: number; limit?: number; search?: string; role?: string }) {
+    const queryParams = new URLSearchParams()
+    if (params?.page) queryParams.set('page', String(params.page))
+    if (params?.limit) queryParams.set('page_size', String(params.limit))
+    if (params?.search) queryParams.set('search', params.search)
+    if (params?.role) queryParams.set('role', params.role)
+    const query = queryParams.toString()
+    const response = await apiFetch<{ data: Array<Record<string, unknown>>; pagination: { total: number; page: number; page_size: number; total_pages: number } }>(
+      `/platform-admin/users${query ? `?${query}` : ''}`
+    )
+    return {
+      data: response.data.map((user) => ({
+        id: String(user.id),
+        accountType: user.account_type as PlatformUser['accountType'],
+        email: String(user.email || ''),
+        displayName: String(user.display_name || user.email || ''),
+        companyName: String(user.company_name || '—'),
+        role: String(user.role || ''),
+        isActive: Boolean(user.is_active),
+        lastLoginAt: user.last_login_at as string | undefined,
+        createdAt: user.created_at as string | undefined,
+        permissionsCount: Number(user.permissions_count || 0),
+      } satisfies PlatformUser)),
+      ...response.pagination,
+    }
+  },
+
   async list(companyId: string, params?: { page?: number; limit?: number; role?: string }) {
     const queryParams = new URLSearchParams()
     if (params?.page) queryParams.set('page', String(params.page))
@@ -229,6 +276,33 @@ export const usersApi = {
 // ============================================
 
 export const accountsApi = {
+  async listPlatform(params?: { page?: number; limit?: number; search?: string }) {
+    const queryParams = new URLSearchParams()
+    if (params?.page) queryParams.set('page', String(params.page))
+    if (params?.limit) queryParams.set('page_size', String(params.limit))
+    if (params?.search) queryParams.set('search', params.search)
+    const query = queryParams.toString()
+    const response = await apiFetch<{ data: Array<Record<string, unknown>>; pagination: { total: number; page: number; page_size: number; total_pages: number } }>(
+      `/platform-admin/accounts${query ? `?${query}` : ''}`
+    )
+    return {
+      data: response.data.map((account) => ({
+        id: String(account.id),
+        companyId: String(account.company_id || ''),
+        companyName: String(account.company_name || '—'),
+        name: String(account.name || '—'),
+        status: String(account.status || 'unknown'),
+        plan: String(account.plan || ''),
+        pharmacyCount: Number(account.pharmacy_count || 0),
+        branchesCount: Number(account.branch_count || 0),
+        email: String(account.email || ''),
+        phone: String(account.phone || ''),
+        createdAt: String(account.created_at || ''),
+      } satisfies Account)),
+      ...response.pagination,
+    }
+  },
+
   async list(companyId: string, params?: { page?: number; limit?: number }) {
     const queryParams = new URLSearchParams()
     if (params?.page) queryParams.set('page', String(params.page))
@@ -254,11 +328,39 @@ export const accountsApi = {
 
 export const dashboardApi = {
   async getStats() {
-    return apiFetch<DashboardStats>('/dashboard/stats')
+    return apiFetch<DashboardStats>('/platform-admin/stats')
   },
 
   async getRecentActivity(limit = 10) {
     return apiFetch<{ data: ActivityItem[] }>(`/dashboard/activity?limit=${limit}`)
+  },
+}
+
+export const permissionsApi = {
+  async list() {
+    const response = await apiFetch<{
+      permissions: Array<Record<string, unknown>>
+      roles: Array<Record<string, unknown>>
+    }>('/platform-admin/permissions')
+    return {
+      permissions: response.permissions.map((permission) => ({
+        key: String(permission.key),
+        name: String(permission.name || permission.key),
+        description: String(permission.description || ''),
+        module: String(permission.module || 'other'),
+        category: String(permission.category || ''),
+        isSystem: Boolean(permission.is_system),
+        sortOrder: Number(permission.sort_order || 0),
+      } satisfies PlatformPermission)),
+      roles: response.roles.map((role) => ({
+        id: String(role.id),
+        name: String(role.name),
+        description: String(role.description || ''),
+        isSystem: Boolean(role.is_system),
+        userCount: Number(role.user_count || 0),
+        permissionKeys: Array.isArray(role.permission_keys) ? role.permission_keys.map(String) : [],
+      } satisfies PlatformRole)),
+    }
   },
 }
 
@@ -282,5 +384,6 @@ export const api = {
   users: usersApi,
   accounts: accountsApi,
   dashboard: dashboardApi,
+  permissions: permissionsApi,
   healthCheck,
 }

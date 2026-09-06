@@ -72,6 +72,17 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 		dashboard.GET("/stats", h.GetDashboardStats)
 		dashboard.GET("/activity", h.GetRecentActivity)
 
+		// Platform admin routes are global. They have their own explicit
+		// super-admin guard and never reuse company-scoped dashboard routes.
+		platformAdmin := v1.Group("/platform-admin")
+		platformAdmin.Use(h.auth.Middleware())
+		platformAdmin.Use(requirePlatformSuperAdmin())
+		platformAdmin.GET("/stats", h.GetPlatformAdminStats)
+		platformAdmin.GET("/companies", h.ListPlatformCompanies)
+		platformAdmin.GET("/users", h.ListPlatformUsers)
+		platformAdmin.GET("/accounts", h.ListPlatformAccounts)
+		platformAdmin.GET("/permissions", h.ListPlatformPermissions)
+
 		// Pharmacy data is scoped from the authenticated employee/company
 		// principal. These endpoints intentionally do not accept a pharmacy
 		// id in the URL or query string.
