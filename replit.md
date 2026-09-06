@@ -8,6 +8,8 @@ This repository contains the Pharmacy OS frontend monorepo and backend:
 - `backend/` — the Go 1.25 Gin API and its migrations.
 - `SYSTEM_GUIDE.md` — the full product, architecture, authentication, data model,
   deployment, and agent-development guide. Read it before changing the project.
+- `docs/architecture-readiness.md` — the current scale-readiness decision,
+  confirmed gaps, and mandatory workflow for future agents.
 
 ## Replit setup
 

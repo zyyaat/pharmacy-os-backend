@@ -13,7 +13,6 @@ import {
   Settings,
   ChevronLeft,
   ChevronRight,
-  Store,
   LogOut,
   Menu,
   X,
@@ -55,11 +54,6 @@ const sidebarItems: SidebarItem[] = [
     title: "الحسابات",
     href: "/accounts",
     icon: <CreditCard className="h-5 w-5" />,
-  },
-  {
-    title: "الصيدليات",
-    href: "/pharmacies",
-    icon: <Store className="h-5 w-5" />,
   },
 ];
 
