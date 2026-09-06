@@ -4,6 +4,8 @@
 import type { Company, CompanyUser, DashboardStats, Account, ActivityItem, PlatformUser, PlatformPermission, PlatformRole } from '@/types'
 
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || '/api/v1').replace(/\/+$/, '')
+const AUTH_BASE_PATH = '/auth/platform'
+const CSRF_COOKIE_NAME = 'platform_csrf'
 let refreshPromise: Promise<boolean> | null = null
 
 export class ApiError extends Error {
@@ -21,14 +23,14 @@ export class ApiError extends Error {
 // Generic fetch wrapper with auth
 async function refreshSession(): Promise<boolean> {
   if (!refreshPromise) {
-    refreshPromise = fetch(`${API_BASE_URL}/auth/refresh`, {
+    refreshPromise = fetch(`${API_BASE_URL}${AUTH_BASE_PATH}/refresh`, {
       method: 'POST',
       credentials: 'include',
       headers: typeof document === 'undefined'
         ? {}
         : {
             'X-CSRF-Token': decodeURIComponent(
-              document.cookie.match(/(?:^|; )pharmacy_csrf=([^;]+)/)?.[1] || ''
+              document.cookie.match(new RegExp(`(?:^|; )${CSRF_COOKIE_NAME}=([^;]+)`))?.[1] || ''
             ),
           },
     })
@@ -42,7 +44,7 @@ async function refreshSession(): Promise<boolean> {
 }
 
 function shouldRefreshSession(endpoint: string): boolean {
-  return endpoint === '/auth/me' || !endpoint.startsWith('/auth/')
+  return endpoint === `${AUTH_BASE_PATH}/me` || !endpoint.startsWith('/auth/')
 }
 
 async function apiFetch<T>(
@@ -58,7 +60,7 @@ async function apiFetch<T>(
   }
 
   if (typeof window !== 'undefined' && options.method && options.method !== 'GET') {
-    const csrf = document.cookie.match(/(?:^|; )pharmacy_csrf=([^;]+)/)?.[1]
+    const csrf = document.cookie.match(new RegExp(`(?:^|; )${CSRF_COOKIE_NAME}=([^;]+)`))?.[1]
     if (csrf) headers['X-CSRF-Token'] = decodeURIComponent(csrf)
   }
 
@@ -99,7 +101,7 @@ export const authApi = {
       data?: { user: CompanyUser; expires_in: number }
       user?: CompanyUser
       expires_in?: number
-    }>('/auth/login', {
+    }>(`${AUTH_BASE_PATH}/login`, {
       method: 'POST',
       body: JSON.stringify({ email, password, account_type: 'company_user' }),
     })
@@ -114,7 +116,7 @@ export const authApi = {
   },
 
   async logout() {
-    return apiFetch('/auth/logout', { method: 'POST' })
+    return apiFetch(`${AUTH_BASE_PATH}/logout`, { method: 'POST' })
   },
 
   async resendVerification(email: string) {
@@ -132,12 +134,12 @@ export const authApi = {
   },
 
   async getProfile() {
-    const response = await apiFetch<{ user: CompanyUser }>('/auth/me')
+    const response = await apiFetch<{ user: CompanyUser }>(`${AUTH_BASE_PATH}/me`)
     return normalizeCompanyUser(response.user)
   },
 
   async changePassword(currentPassword: string, newPassword: string) {
-    return apiFetch('/auth/change-password', {
+    return apiFetch(`${AUTH_BASE_PATH}/change-password`, {
       method: 'POST',
       body: JSON.stringify({ current_password: currentPassword, new_password: newPassword }),
     })

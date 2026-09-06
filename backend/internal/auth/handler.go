@@ -23,8 +23,8 @@ func NewHandler(db *pgxpool.Pool, cfg Config) *Handler {
 // Middleware authenticates requests with the same opaque session service used
 // by the auth endpoints. Keeping this adapter on Handler prevents other
 // packages from reaching into the service implementation.
-func (h *Handler) Middleware() gin.HandlerFunc {
-	return h.service.Middleware()
+func (h *Handler) Middleware(realm AuthRealm) gin.HandlerFunc {
+	return h.service.Middleware(realm)
 }
 
 type loginRequest struct {
@@ -61,13 +61,24 @@ type registerRequest struct {
 
 func (h *Handler) RegisterRoutes(group *gin.RouterGroup) {
 	authGroup := group.Group("/auth")
-	authGroup.POST("/login", h.login)
 	authGroup.POST("/register", h.register)
-	authGroup.POST("/refresh", CSRF(), h.refresh)
-	authGroup.POST("/logout", CSRF(), h.logout)
-	authGroup.GET("/me", h.service.Middleware(), h.me)
-	authGroup.POST("/logout-all", h.service.Middleware(), CSRF(), h.logoutAll)
-	authGroup.POST("/change-password", h.service.Middleware(), CSRF(), h.changePassword)
+
+	platform := authGroup.Group("/platform")
+	platform.POST("/login", h.loginPlatform)
+	platform.POST("/refresh", CSRF(PlatformRealm), h.refreshPlatform)
+	platform.POST("/logout", CSRF(PlatformRealm), h.logoutPlatform)
+	platform.GET("/me", h.service.Middleware(PlatformRealm), h.me)
+	platform.POST("/logout-all", h.service.Middleware(PlatformRealm), CSRF(PlatformRealm), h.logoutAllPlatform)
+	platform.POST("/change-password", h.service.Middleware(PlatformRealm), CSRF(PlatformRealm), h.changePassword)
+
+	pharmacy := authGroup.Group("/pharmacy")
+	pharmacy.POST("/login", h.loginPharmacy)
+	pharmacy.POST("/refresh", CSRF(PharmacyRealm), h.refreshPharmacy)
+	pharmacy.POST("/logout", CSRF(PharmacyRealm), h.logoutPharmacy)
+	pharmacy.GET("/me", h.service.Middleware(PharmacyRealm), h.me)
+	pharmacy.POST("/logout-all", h.service.Middleware(PharmacyRealm), CSRF(PharmacyRealm), h.logoutAllPharmacy)
+	pharmacy.POST("/change-password", h.service.Middleware(PharmacyRealm), CSRF(PharmacyRealm), h.changePassword)
+
 	authGroup.POST("/forgot-password", h.forgotPassword)
 	authGroup.POST("/reset-password", h.resetPassword)
 	authGroup.POST("/verify-email", h.verifyEmail)
@@ -115,7 +126,15 @@ func (h *Handler) register(c *gin.Context) {
 	})
 }
 
-func (h *Handler) login(c *gin.Context) {
+func (h *Handler) loginPlatform(c *gin.Context) {
+	h.loginForRealm(c, PlatformRealm)
+}
+
+func (h *Handler) loginPharmacy(c *gin.Context) {
+	h.loginForRealm(c, PharmacyRealm)
+}
+
+func (h *Handler) loginForRealm(c *gin.Context, realm AuthRealm) {
 	var req loginRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
 		writeError(c, http.StatusBadRequest, "validation_error", "Email and password are required")
@@ -131,7 +150,7 @@ func (h *Handler) login(c *gin.Context) {
 
 	principal, tokens, err := h.service.Login(
 		c.Request.Context(), req.Email, req.Password, req.AccountType,
-		firstNonEmpty(req.CompanyID, req.PharmacyID),
+		firstNonEmpty(req.CompanyID, req.PharmacyID), realm,
 		RequestMeta{IPAddress: c.ClientIP(), UserAgent: c.GetHeader("User-Agent")},
 	)
 	if err != nil {
@@ -147,7 +166,7 @@ func (h *Handler) login(c *gin.Context) {
 		}
 		return
 	}
-	if err := h.setAuthCookies(c, tokens); err != nil {
+	if err := h.setAuthCookies(c, tokens, realm); err != nil {
 		log.Printf("auth cookie setup failed: %v", err)
 		writeError(c, http.StatusInternalServerError, "session_error", "Could not create a secure session")
 		return
@@ -162,21 +181,29 @@ func (h *Handler) login(c *gin.Context) {
 	})
 }
 
-func (h *Handler) refresh(c *gin.Context) {
-	refreshToken := refreshTokenFromRequest(c)
+func (h *Handler) refreshPlatform(c *gin.Context) {
+	h.refreshForRealm(c, PlatformRealm)
+}
+
+func (h *Handler) refreshPharmacy(c *gin.Context) {
+	h.refreshForRealm(c, PharmacyRealm)
+}
+
+func (h *Handler) refreshForRealm(c *gin.Context, realm AuthRealm) {
+	refreshToken := refreshTokenFromRequest(realm, c)
 	if refreshToken == "" {
 		writeError(c, http.StatusUnauthorized, "refresh_required", "Refresh session required")
 		return
 	}
-	principal, tokens, err := h.service.Refresh(c.Request.Context(), refreshToken, RequestMeta{
+	principal, tokens, err := h.service.Refresh(c.Request.Context(), refreshToken, realm, RequestMeta{
 		IPAddress: c.ClientIP(), UserAgent: c.GetHeader("User-Agent"),
 	})
 	if err != nil {
-		h.clearAuthCookies(c)
+		h.clearAuthCookies(c, realm)
 		writeError(c, http.StatusUnauthorized, "invalid_refresh_session", "Refresh session expired or invalid")
 		return
 	}
-	if err := h.setAuthCookies(c, tokens); err != nil {
+	if err := h.setAuthCookies(c, tokens, realm); err != nil {
 		writeError(c, http.StatusInternalServerError, "session_error", "Could not rotate session")
 		return
 	}
@@ -186,9 +213,17 @@ func (h *Handler) refresh(c *gin.Context) {
 	})
 }
 
-func (h *Handler) logout(c *gin.Context) {
-	_ = h.service.RevokeTokens(c.Request.Context(), accessTokenFromRequest(c), refreshTokenFromRequest(c))
-	h.clearAuthCookies(c)
+func (h *Handler) logoutPlatform(c *gin.Context) {
+	h.logoutForRealm(c, PlatformRealm)
+}
+
+func (h *Handler) logoutPharmacy(c *gin.Context) {
+	h.logoutForRealm(c, PharmacyRealm)
+}
+
+func (h *Handler) logoutForRealm(c *gin.Context, realm AuthRealm) {
+	_ = h.service.RevokeTokens(c.Request.Context(), accessTokenFromRequest(realm, c), refreshTokenFromRequest(realm, c))
+	h.clearAuthCookies(c, realm)
 	c.JSON(http.StatusOK, gin.H{"message": "Logged out"})
 }
 
@@ -201,13 +236,21 @@ func (h *Handler) me(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"user": userPayload(principal)})
 }
 
-func (h *Handler) logoutAll(c *gin.Context) {
+func (h *Handler) logoutAllPlatform(c *gin.Context) {
+	h.logoutAllForRealm(c, PlatformRealm)
+}
+
+func (h *Handler) logoutAllPharmacy(c *gin.Context) {
+	h.logoutAllForRealm(c, PharmacyRealm)
+}
+
+func (h *Handler) logoutAllForRealm(c *gin.Context, realm AuthRealm) {
 	principal, _ := PrincipalFromContext(c)
-	if err := h.service.RevokeAll(c.Request.Context(), principal); err != nil {
+	if err := h.service.RevokeAllInRealm(c.Request.Context(), principal, realm); err != nil {
 		writeError(c, http.StatusInternalServerError, "logout_failed", "Could not revoke sessions")
 		return
 	}
-	h.clearAuthCookies(c)
+	h.clearAuthCookies(c, realm)
 	c.JSON(http.StatusOK, gin.H{"message": "All sessions revoked"})
 }
 
@@ -226,7 +269,8 @@ func (h *Handler) changePassword(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "password_update_failed", "Could not update password")
 		return
 	}
-	h.clearAuthCookies(c)
+	realm := AuthRealm(c.GetString("auth_realm"))
+	h.clearAuthCookies(c, realm)
 	c.JSON(http.StatusOK, gin.H{"message": "Password changed. Please sign in again."})
 }
 
@@ -328,7 +372,7 @@ func isVerificationCode(code string) bool {
 	return true
 }
 
-func (h *Handler) setAuthCookies(c *gin.Context, tokens *SessionTokens) error {
+func (h *Handler) setAuthCookies(c *gin.Context, tokens *SessionTokens, realm AuthRealm) error {
 	csrf, err := newCSRFToken()
 	if err != nil {
 		return err
@@ -344,13 +388,13 @@ func (h *Handler) setAuthCookies(c *gin.Context, tokens *SessionTokens) error {
 			MaxAge: maxAge, Secure: secure, HttpOnly: httpOnly, SameSite: sameSite,
 		})
 	}
-	setCookie(AccessCookieName, tokens.AccessToken, int(h.service.cfg.AccessTTL.Seconds()), true, "/")
-	setCookie(RefreshCookieName, tokens.RefreshToken, int(h.service.cfg.RefreshTTL.Seconds()), true, "/api/v1/auth")
-	setCookie(CSRFCookieName, csrf, int(h.service.cfg.RefreshTTL.Seconds()), false, "/")
+	setCookie(accessCookieName(realm), tokens.AccessToken, int(h.service.cfg.AccessTTL.Seconds()), true, "/")
+	setCookie(refreshCookieName(realm), tokens.RefreshToken, int(h.service.cfg.RefreshTTL.Seconds()), true, "/api/v1/auth")
+	setCookie(csrfCookieName(realm), csrf, int(h.service.cfg.RefreshTTL.Seconds()), false, "/")
 	return nil
 }
 
-func (h *Handler) clearAuthCookies(c *gin.Context) {
+func (h *Handler) clearAuthCookies(c *gin.Context, realm AuthRealm) {
 	secure := h.service.cfg.CookieSecure
 	sameSite := http.SameSiteLaxMode
 	if secure {
@@ -358,10 +402,10 @@ func (h *Handler) clearAuthCookies(c *gin.Context) {
 	}
 	for _, cookie := range []struct {
 		name, path string
-	}{{AccessCookieName, "/"}, {RefreshCookieName, "/api/v1/auth"}, {CSRFCookieName, "/"}} {
+	}{{accessCookieName(realm), "/"}, {refreshCookieName(realm), "/api/v1/auth"}, {csrfCookieName(realm), "/"}} {
 		http.SetCookie(c.Writer, &http.Cookie{
 			Name: cookie.name, Value: "", Path: cookie.path, Domain: h.service.cfg.CookieDomain,
-			MaxAge: -1, Secure: secure, HttpOnly: cookie.name != CSRFCookieName, SameSite: sameSite,
+			MaxAge: -1, Secure: secure, HttpOnly: cookie.name != csrfCookieName(realm), SameSite: sameSite,
 		})
 	}
 }

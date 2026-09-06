@@ -5,10 +5,15 @@ import { authApi } from '@/lib/api'
 
 export type PharmacyUser = Record<string, unknown> & {
   account_type?: 'company_user' | 'employee'
+  role?: string
+  pharmacy_id?: string
 }
 
 function isPharmacyAccount(user: PharmacyUser): boolean {
-  return user.account_type === 'employee' || user.account_type === 'company_user'
+  if (!user.pharmacy_id) return false
+  if (user.account_type === 'employee') return true
+  return user.account_type === 'company_user' &&
+    ['company_admin', 'company_manager'].includes(user.role || '')
 }
 
 interface AuthContextValue {

@@ -14,3 +14,9 @@ The Pharmacy App accepts both `company_user` owners and `employee` identities fo
 **Why:** Registration in the Pharmacy App creates a company owner account, so rejecting all company users at the pharmacy route boundary made the product reject the very account it had just created.
 
 **How to apply:** Keep owner access tenant-scoped through the principal's assigned pharmacy, and do not broaden employee-only inventory or operational mutations without an explicit company permission model.
+
+Platform-admin and pharmacy authentication are separate realms with separate cookies and endpoints. `super_admin` belongs only to the platform realm; pharmacy access requires an assigned pharmacy.
+
+**Why:** Browser cookies are shared across ports on the same host, so shared auth names allowed an admin session to render the pharmacy shell before API authorization rejected it.
+
+**How to apply:** Preserve realm checks in both session queries and route middleware, and keep each frontend bound to its own realm-specific auth client.

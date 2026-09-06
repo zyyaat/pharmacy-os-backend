@@ -1,8 +1,10 @@
 const API_BASE_URL = (process.env.NEXT_PUBLIC_API_URL || '/api/v1').replace(/\/+$/, '')
+const AUTH_BASE_PATH = '/auth/pharmacy'
+const CSRF_COOKIE_NAME = 'pharmacy_csrf'
 
 function csrfHeaders(): HeadersInit {
   if (typeof document === 'undefined') return {}
-  const csrf = document.cookie.match(/(?:^|; )pharmacy_csrf=([^;]+)/)?.[1]
+  const csrf = document.cookie.match(new RegExp(`(?:^|; )${CSRF_COOKIE_NAME}=([^;]+)`))?.[1]
   return csrf ? { 'X-CSRF-Token': decodeURIComponent(csrf) } : {}
 }
 
@@ -22,7 +24,7 @@ export class ApiError extends Error {
 
 async function refreshSession(): Promise<boolean> {
   if (!refreshPromise) {
-    refreshPromise = fetch(`${API_BASE_URL}/auth/refresh`, {
+    refreshPromise = fetch(`${API_BASE_URL}${AUTH_BASE_PATH}/refresh`, {
       method: 'POST',
       credentials: 'include',
       headers: csrfHeaders(),
@@ -37,7 +39,7 @@ async function refreshSession(): Promise<boolean> {
 }
 
 function shouldRefreshSession(endpoint: string): boolean {
-  return endpoint === '/auth/me' || !endpoint.startsWith('/auth/')
+  return endpoint === `${AUTH_BASE_PATH}/me` || !endpoint.startsWith('/auth/')
 }
 
 export async function apiFetch<T>(endpoint: string, options: RequestInit = {}, canRefresh = true): Promise<T> {
@@ -75,7 +77,7 @@ export async function apiFetch<T>(endpoint: string, options: RequestInit = {}, c
 
 export const authApi = {
   login(email: string, password: string) {
-    return apiFetch<{ user: Record<string, unknown>; expires_in: number }>('/auth/login', {
+    return apiFetch<{ user: Record<string, unknown>; expires_in: number }>(`${AUTH_BASE_PATH}/login`, {
       method: 'POST',
       body: JSON.stringify({ email, password }),
     })
@@ -93,10 +95,10 @@ export const authApi = {
     })
   },
   me() {
-    return apiFetch<{ user: Record<string, unknown> }>('/auth/me')
+    return apiFetch<{ user: Record<string, unknown> }>(`${AUTH_BASE_PATH}/me`)
   },
   logout() {
-    return apiFetch('/auth/logout', { method: 'POST' })
+    return apiFetch(`${AUTH_BASE_PATH}/logout`, { method: 'POST' })
   },
 }
 

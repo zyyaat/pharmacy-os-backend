@@ -84,8 +84,11 @@ https://your-frontend.vercel.app
 
 Apply `backend/migrations/00000000000006_go_auth.sql` before using the auth endpoints.
 The Go API owns authentication: passwords, email tokens, opaque sessions, cookie
-rotation, revocation, and CSRF validation. The frontend must use
-`credentials: include`; it must not store auth tokens in localStorage.
+rotation, revocation, CSRF validation, and realm separation. Platform and
+pharmacy apps use separate login/me/refresh/logout routes and cookies. Platform
+sessions are restricted to `super_admin`; pharmacy sessions are restricted to
+employees and assigned company managers, never `super_admin`. The frontend must
+use `credentials: include`; it must not store auth tokens in localStorage.
 
 ## Frontend
 

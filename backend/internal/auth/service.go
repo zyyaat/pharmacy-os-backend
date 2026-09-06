@@ -24,6 +24,13 @@ const (
 	ResetPasswordPurpose = "reset_password"
 )
 
+type AuthRealm string
+
+const (
+	PlatformRealm AuthRealm = "platform"
+	PharmacyRealm AuthRealm = "pharmacy"
+)
+
 var (
 	ErrInvalidCredentials = errors.New("invalid email or password")
 	ErrAccountLocked      = errors.New("account temporarily locked")
@@ -96,6 +103,28 @@ func (s *Service) Config() Config {
 	return s.cfg
 }
 
+func principalAllowedInRealm(principal *Principal, realm AuthRealm) bool {
+	if principal == nil || !principal.IsActive {
+		return false
+	}
+	switch realm {
+	case PlatformRealm:
+		return principal.Type == CompanyUserPrincipal && principal.Role == "super_admin"
+	case PharmacyRealm:
+		if principal.PharmacyID == "" || principal.Role == "super_admin" {
+			return false
+		}
+		if principal.Type == EmployeePrincipal {
+			return true
+		}
+		return principal.Type == CompanyUserPrincipal &&
+			(principal.Role == "company_admin" ||
+				principal.Role == "company_manager")
+	default:
+		return false
+	}
+}
+
 func (s *Service) FindPrincipal(ctx context.Context, email, principalType, tenantID string) (*Principal, error) {
 	email = normalizeEmail(email)
 	switch principalType {
@@ -121,28 +150,37 @@ func (s *Service) FindPrincipal(ctx context.Context, email, principalType, tenan
 	}
 }
 
-func (s *Service) Authenticate(ctx context.Context, accessToken string) (*Principal, error) {
+func (s *Service) Authenticate(ctx context.Context, accessToken string, realm AuthRealm) (*Principal, error) {
 	hash := tokenHash(accessToken)
 	var principalType, principalID string
 	err := s.db.QueryRow(ctx, `
 		SELECT principal_type, principal_id::text
 		FROM auth_sessions
 		WHERE access_token_hash = $1
+	  AND auth_realm = $2
 		  AND revoked_at IS NULL
 		  AND access_expires_at > NOW()
 		  AND refresh_expires_at > NOW()
-	`, hash).Scan(&principalType, &principalID)
+	`, hash, string(realm)).Scan(&principalType, &principalID)
 	if err != nil {
 		return nil, ErrInvalidToken
 	}
 	_, _ = s.db.Exec(ctx, `UPDATE auth_sessions SET last_used_at = NOW() WHERE access_token_hash = $1`, hash)
-	return s.findPrincipalByID(ctx, principalType, principalID)
+	principal, err := s.findPrincipalByID(ctx, principalType, principalID)
+	if err != nil || !principalAllowedInRealm(principal, realm) {
+		return nil, ErrInvalidToken
+	}
+	return principal, nil
 }
 
-func (s *Service) Login(ctx context.Context, email, password, principalType, tenantID string, meta RequestMeta) (*Principal, *SessionTokens, error) {
+func (s *Service) Login(ctx context.Context, email, password, principalType, tenantID string, realm AuthRealm, meta RequestMeta) (*Principal, *SessionTokens, error) {
 	principal, err := s.FindPrincipal(ctx, email, principalType, tenantID)
 	if err != nil {
 		// Run the same expensive password operation for unknown accounts.
+		_ = bcrypt.CompareHashAndPassword([]byte(dummyPasswordHash), []byte(password))
+		return nil, nil, ErrInvalidCredentials
+	}
+	if !principalAllowedInRealm(principal, realm) {
 		_ = bcrypt.CompareHashAndPassword([]byte(dummyPasswordHash), []byte(password))
 		return nil, nil, ErrInvalidCredentials
 	}
@@ -166,14 +204,14 @@ func (s *Service) Login(ctx context.Context, email, password, principalType, ten
 	if err := s.recordSuccessfulLogin(ctx, principal); err != nil {
 		return nil, nil, fmt.Errorf("update login state: %w", err)
 	}
-	tokens, err := s.createSession(ctx, principal, meta)
+	tokens, err := s.createSession(ctx, principal, realm, meta)
 	if err != nil {
 		return nil, nil, err
 	}
 	return principal, tokens, nil
 }
 
-func (s *Service) Refresh(ctx context.Context, refreshToken string, meta RequestMeta) (*Principal, *SessionTokens, error) {
+func (s *Service) Refresh(ctx context.Context, refreshToken string, realm AuthRealm, meta RequestMeta) (*Principal, *SessionTokens, error) {
 	hash := tokenHash(refreshToken)
 	tx, err := s.db.Begin(ctx)
 	if err != nil {
@@ -186,16 +224,17 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string, meta Request
 		SELECT id::text, family_id::text, principal_type, principal_id::text
 		FROM auth_sessions
 		WHERE refresh_token_hash = $1
+	  AND auth_realm = $2
 		  AND revoked_at IS NULL
 		  AND refresh_expires_at > NOW()
 		FOR UPDATE
-	`, hash).Scan(&sessionID, &familyID, &principalType, &principalID)
+	`, hash, string(realm)).Scan(&sessionID, &familyID, &principalType, &principalID)
 	if err != nil {
 		return nil, nil, ErrInvalidToken
 	}
 
 	principal, err := s.findPrincipalByID(ctx, principalType, principalID)
-	if err != nil || !principal.IsActive {
+	if err != nil || !principal.IsActive || !principalAllowedInRealm(principal, realm) {
 		return nil, nil, ErrInvalidToken
 	}
 
@@ -218,12 +257,12 @@ func (s *Service) Refresh(ctx context.Context, refreshToken string, meta Request
 	var replacementID string
 	err = tx.QueryRow(ctx, `
 		INSERT INTO auth_sessions (
-			family_id, principal_type, principal_id, access_token_hash,
+	family_id, auth_realm, principal_type, principal_id, access_token_hash,
 			refresh_token_hash, access_expires_at, refresh_expires_at,
 			user_agent, ip_address
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULLIF($9, '')::inet)
-		RETURNING id::text
-	`, familyID, principalType, principalID, tokenHash(access), tokenHash(refresh),
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, NULLIF($10, '')::inet)
+	RETURNING id::text
+	`, familyID, string(realm), principalType, principalID, tokenHash(access), tokenHash(refresh),
 		tokens.AccessExpiresAt, tokens.RefreshExpiresAt, meta.UserAgent, meta.IPAddress).Scan(&replacementID)
 	if err != nil {
 		return nil, nil, fmt.Errorf("create rotated session: %w", err)
@@ -255,6 +294,15 @@ func (s *Service) RevokeAll(ctx context.Context, principal *Principal) error {
 		UPDATE auth_sessions SET revoked_at = NOW()
 		WHERE principal_type = $1 AND principal_id = $2 AND revoked_at IS NULL
 	`, principal.Type, principal.ID)
+	return err
+}
+
+func (s *Service) RevokeAllInRealm(ctx context.Context, principal *Principal, realm AuthRealm) error {
+	_, err := s.db.Exec(ctx, `
+	UPDATE auth_sessions SET revoked_at = NOW()
+	WHERE principal_type = $1 AND principal_id = $2
+	  AND auth_realm = $3 AND revoked_at IS NULL
+	`, principal.Type, principal.ID, string(realm))
 	return err
 }
 
@@ -546,7 +594,7 @@ func (s *Service) findPrincipalByID(ctx context.Context, principalType, id strin
 	return &p, nil
 }
 
-func (s *Service) createSession(ctx context.Context, principal *Principal, meta RequestMeta) (*SessionTokens, error) {
+func (s *Service) createSession(ctx context.Context, principal *Principal, realm AuthRealm, meta RequestMeta) (*SessionTokens, error) {
 	access, err := randomToken(32)
 	if err != nil {
 		return nil, err
@@ -564,10 +612,10 @@ func (s *Service) createSession(ctx context.Context, principal *Principal, meta 
 	}
 	_, err = s.db.Exec(ctx, `
 		INSERT INTO auth_sessions (
-			principal_type, principal_id, access_token_hash, refresh_token_hash,
+	auth_realm, principal_type, principal_id, access_token_hash, refresh_token_hash,
 			access_expires_at, refresh_expires_at, user_agent, ip_address
-		) VALUES ($1, $2, $3, $4, $5, $6, $7, NULLIF($8, '')::inet)
-	`, principal.Type, principal.ID, tokenHash(access), tokenHash(refresh),
+) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, NULLIF($9, '')::inet)
+	`, string(realm), principal.Type, principal.ID, tokenHash(access), tokenHash(refresh),
 		tokens.AccessExpiresAt, tokens.RefreshExpiresAt, meta.UserAgent, meta.IPAddress)
 	if err != nil {
 		return nil, fmt.Errorf("create session: %w", err)
@@ -578,8 +626,8 @@ func (s *Service) createSession(ctx context.Context, principal *Principal, meta 
 // CreateSession creates a browser session for a newly registered principal.
 // Registration uses this instead of requiring the user to enter credentials a
 // second time after the account has been created.
-func (s *Service) CreateSession(ctx context.Context, principal *Principal, meta RequestMeta) (*SessionTokens, error) {
-	return s.createSession(ctx, principal, meta)
+func (s *Service) CreateSession(ctx context.Context, principal *Principal, realm AuthRealm, meta RequestMeta) (*SessionTokens, error) {
+	return s.createSession(ctx, principal, realm, meta)
 }
 
 func (s *Service) recordFailedLogin(ctx context.Context, principal *Principal) (bool, error) {

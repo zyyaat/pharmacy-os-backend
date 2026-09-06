@@ -10,10 +10,7 @@ import (
 )
 
 const (
-	AccessCookieName  = "pharmacy_access"
-	RefreshCookieName = "pharmacy_refresh"
-	CSRFCookieName    = "pharmacy_csrf"
-	CSRFHeaderName    = "X-CSRF-Token"
+	CSRFHeaderName = "X-CSRF-Token"
 )
 
 type contextKey string
@@ -22,16 +19,16 @@ const principalContextKey contextKey = "auth_principal"
 
 // Middleware authenticates requests using the short-lived opaque access cookie.
 // Authorization Bearer is retained for server-to-server clients, not browsers.
-func (s *Service) Middleware() gin.HandlerFunc {
+func (s *Service) Middleware(realm AuthRealm) gin.HandlerFunc {
 	return func(c *gin.Context) {
-		token := accessTokenFromRequest(c)
+		token := accessTokenFromRequest(realm, c)
 		if token == "" {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"error": "authentication_required", "message": "Authentication required",
 			})
 			return
 		}
-		principal, err := s.Authenticate(c.Request.Context(), token)
+		principal, err := s.Authenticate(c.Request.Context(), token, realm)
 		if err != nil {
 			c.AbortWithStatusJSON(http.StatusUnauthorized, gin.H{
 				"error": "invalid_session", "message": "Session expired or invalid",
@@ -39,6 +36,7 @@ func (s *Service) Middleware() gin.HandlerFunc {
 			return
 		}
 		setPrincipal(c, principal)
+		c.Set("auth_realm", string(realm))
 		c.Next()
 	}
 }
@@ -51,7 +49,8 @@ func RequirePharmacyPrincipal() gin.HandlerFunc {
 		principal, ok := PrincipalFromContext(c)
 		if !ok ||
 			(principal.Type != EmployeePrincipal && principal.Type != CompanyUserPrincipal) ||
-			principal.PharmacyID == "" {
+			principal.PharmacyID == "" ||
+			principal.Role == "super_admin" {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
 				"error":   "pharmacy_account_required",
 				"message": "An active pharmacy account is required",
@@ -82,13 +81,13 @@ func RequireEmployeePrincipal() gin.HandlerFunc {
 
 // CSRF protects cookie-authenticated state-changing requests with a
 // double-submit token. GET, HEAD and OPTIONS remain safe without the header.
-func CSRF() gin.HandlerFunc {
+func CSRF(realm AuthRealm) gin.HandlerFunc {
 	return func(c *gin.Context) {
 		if c.Request.Method == http.MethodGet || c.Request.Method == http.MethodHead || c.Request.Method == http.MethodOptions {
 			c.Next()
 			return
 		}
-		cookie, err := c.Cookie(CSRFCookieName)
+		cookie, err := c.Cookie(csrfCookieName(realm))
 		header := c.GetHeader(CSRFHeaderName)
 		if err != nil || cookie == "" || header == "" || cookie != header {
 			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
@@ -122,8 +121,8 @@ func PrincipalFromContext(c *gin.Context) (*Principal, bool) {
 	return principal, ok
 }
 
-func accessTokenFromRequest(c *gin.Context) string {
-	if value, err := c.Cookie(AccessCookieName); err == nil && value != "" {
+func accessTokenFromRequest(realm AuthRealm, c *gin.Context) string {
+	if value, err := c.Cookie(accessCookieName(realm)); err == nil && value != "" {
 		return value
 	}
 	header := strings.TrimSpace(c.GetHeader("Authorization"))
@@ -133,9 +132,30 @@ func accessTokenFromRequest(c *gin.Context) string {
 	return ""
 }
 
-func refreshTokenFromRequest(c *gin.Context) string {
-	value, _ := c.Cookie(RefreshCookieName)
+func refreshTokenFromRequest(realm AuthRealm, c *gin.Context) string {
+	value, _ := c.Cookie(refreshCookieName(realm))
 	return value
+}
+
+func accessCookieName(realm AuthRealm) string {
+	if realm == PlatformRealm {
+		return "platform_access"
+	}
+	return "pharmacy_access"
+}
+
+func refreshCookieName(realm AuthRealm) string {
+	if realm == PlatformRealm {
+		return "platform_refresh"
+	}
+	return "pharmacy_refresh"
+}
+
+func csrfCookieName(realm AuthRealm) string {
+	if realm == PlatformRealm {
+		return "platform_csrf"
+	}
+	return "pharmacy_csrf"
 }
 
 func newCSRFToken() (string, error) {

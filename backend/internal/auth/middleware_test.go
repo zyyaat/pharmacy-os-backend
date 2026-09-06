@@ -57,6 +57,31 @@ func TestRequirePharmacyPrincipalAllowsCompanyUsersWithPharmacy(t *testing.T) {
 	require.Equal(t, http.StatusNoContent, response.Code)
 }
 
+func TestRequirePharmacyPrincipalRejectsSuperAdminWithPharmacy(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.Use(func(c *gin.Context) {
+		setPrincipal(c, &Principal{
+			Type:       CompanyUserPrincipal,
+			CompanyID:  "company-id",
+			PharmacyID: "pharmacy-id",
+			Role:       "super_admin",
+		})
+		c.Next()
+	})
+	router.Use(RequirePharmacyPrincipal())
+	router.GET("/pharmacy", func(c *gin.Context) {
+		c.Status(http.StatusNoContent)
+	})
+
+	request := httptest.NewRequest(http.MethodGet, "/pharmacy", nil)
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+
+	require.Equal(t, http.StatusForbidden, response.Code)
+	require.Contains(t, response.Body.String(), "pharmacy_account_required")
+}
+
 func TestRequirePharmacyPrincipalRejectsUnassignedCompanyUsers(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
@@ -100,4 +125,27 @@ func TestRequireEmployeePrincipalAllowsEmployeeWithPharmacy(t *testing.T) {
 	router.ServeHTTP(response, request)
 
 	require.Equal(t, http.StatusNoContent, response.Code)
+}
+
+func TestPrincipalRealmBoundaries(t *testing.T) {
+	require.True(t, principalAllowedInRealm(&Principal{
+		Type:     CompanyUserPrincipal,
+		Role:     "super_admin",
+		IsActive: true,
+	}, PlatformRealm))
+	require.False(t, principalAllowedInRealm(&Principal{
+		Type:       CompanyUserPrincipal,
+		Role:       "super_admin",
+		PharmacyID: "pharmacy-id",
+	}, PharmacyRealm))
+	require.True(t, principalAllowedInRealm(&Principal{
+		Type:       CompanyUserPrincipal,
+		Role:       "company_manager",
+		PharmacyID: "pharmacy-id",
+		IsActive:   true,
+	}, PharmacyRealm))
+	require.False(t, principalAllowedInRealm(&Principal{
+		Type: CompanyUserPrincipal,
+		Role: "company_manager",
+	}, PharmacyRealm))
 }

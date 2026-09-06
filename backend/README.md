@@ -139,12 +139,24 @@ session revocation, and CSRF protection. Supabase is only used as PostgreSQL.
 
 Auth endpoints:
 ```
-POST /api/v1/auth/login
-POST /api/v1/auth/refresh
-POST /api/v1/auth/logout
-GET  /api/v1/auth/me
-POST /api/v1/auth/logout-all
-POST /api/v1/auth/change-password
+POST /api/v1/auth/platform/login
+POST /api/v1/auth/platform/refresh
+POST /api/v1/auth/platform/logout
+GET  /api/v1/auth/platform/me
+POST /api/v1/auth/platform/logout-all
+POST /api/v1/auth/platform/change-password
+
+POST /api/v1/auth/pharmacy/login
+POST /api/v1/auth/pharmacy/refresh
+POST /api/v1/auth/pharmacy/logout
+GET  /api/v1/auth/pharmacy/me
+POST /api/v1/auth/pharmacy/logout-all
+POST /api/v1/auth/pharmacy/change-password
+
+Platform and pharmacy sessions use separate cookies and database realms.
+Platform sessions are limited to `super_admin` accounts; pharmacy sessions
+accept employees and company managers with an assigned pharmacy, but never
+`company_viewer` or `super_admin` accounts.
 POST /api/v1/auth/forgot-password
 POST /api/v1/auth/reset-password
 POST /api/v1/auth/verify-email   # body: {"email":"user@example.com","code":"123456"}

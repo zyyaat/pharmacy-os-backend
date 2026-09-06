@@ -65,7 +65,7 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 		// company session. The handlers derive the company id from the
 		// principal instead of accepting it from the client.
 		dashboard := v1.Group("/dashboard")
-		dashboard.Use(h.auth.Middleware())
+	dashboard.Use(h.auth.Middleware(auth.PlatformRealm))
 		dashboard.Use(appmiddleware.CompanySessionContext())
 		dashboard.Use(appmiddleware.CompanyDBPoolContext(h.db))
 		dashboard.Use(appmiddleware.RequireCompanyPermission("companies.view"))
@@ -75,7 +75,7 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 		// Platform admin routes are global. They have their own explicit
 		// super-admin guard and never reuse company-scoped dashboard routes.
 		platformAdmin := v1.Group("/platform-admin")
-		platformAdmin.Use(h.auth.Middleware())
+	platformAdmin.Use(h.auth.Middleware(auth.PlatformRealm))
 		platformAdmin.Use(requirePlatformSuperAdmin())
 		platformAdmin.GET("/stats", h.GetPlatformAdminStats)
 		platformAdmin.GET("/companies", h.ListPlatformCompanies)
@@ -87,13 +87,13 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 		// principal. These endpoints intentionally do not accept a pharmacy
 		// id in the URL or query string.
 		pharmacy := v1.Group("/pharmacy")
-		pharmacy.Use(h.auth.Middleware())
+	pharmacy.Use(h.auth.Middleware(auth.PharmacyRealm))
 		pharmacy.Use(auth.RequirePharmacyPrincipal())
 		pharmacy.GET("/context", h.GetPharmacyContext)
 		pharmacy.GET("/dashboard/stats", h.GetPharmacyDashboardStats)
 		pharmacy.GET("/dashboard/activity", h.GetPharmacyDashboardActivity)
 		pharmacy.GET("/inventory", h.GetPharmacyInventory)
-		pharmacy.POST("/inventory/:batch_id/adjust", auth.CSRF(), h.AdjustPharmacyInventory)
+	pharmacy.POST("/inventory/:batch_id/adjust", auth.CSRF(auth.PharmacyRealm), h.AdjustPharmacyInventory)
 		pharmacy.GET("/employees", h.ListPharmacyEmployees)
 		pharmacy.GET("/branches", h.ListPharmacyBranches)
 		pharmacy.GET("/attendance", h.ListPharmacyAttendance)
@@ -103,7 +103,7 @@ func (h *Handler) SetupRoutes(r *gin.Engine) {
 	// The legacy company JWT middleware is intentionally not registered.
 	if h.company != nil {
 		company := v1.Group("/companies")
-		company.Use(h.auth.Middleware())
+	company.Use(h.auth.Middleware(auth.PlatformRealm))
 		company.Use(appmiddleware.CompanySessionContext())
 		company.Use(appmiddleware.CompanyDBPoolContext(h.db))
 		company.Use(appmiddleware.RequireCompanyPermission("companies.view"))
