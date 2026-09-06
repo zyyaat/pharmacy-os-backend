@@ -8,6 +8,7 @@ import (
 	"encoding/base64"
 	"errors"
 	"fmt"
+	"math/big"
 	"strings"
 	"time"
 
@@ -273,6 +274,9 @@ func (s *Service) ChangePassword(ctx context.Context, principal *Principal, curr
 
 func (s *Service) CreateEmailToken(ctx context.Context, principal *Principal, purpose string) (string, error) {
 	raw, err := randomToken(32)
+	if purpose == VerifyEmailPurpose {
+		raw, err = randomVerificationCode()
+	}
 	if err != nil {
 		return "", err
 	}
@@ -301,6 +305,37 @@ func (s *Service) ConsumeEmailToken(ctx context.Context, raw, purpose string) (*
 		WHERE token_hash = $1 AND purpose = $2 AND used_at IS NULL AND expires_at > NOW()
 		RETURNING id::text, principal_type, principal_id::text
 	`, tokenHash(raw), purpose).Scan(&id, &principalType, &principalID)
+	if err != nil {
+		return nil, ErrInvalidToken
+	}
+	return s.findPrincipalByID(ctx, principalType, principalID)
+}
+
+func (s *Service) ConsumeEmailVerificationCode(ctx context.Context, email, code string) (*Principal, error) {
+	var id, principalType, principalID string
+	err := s.db.QueryRow(ctx, `
+UPDATE auth_email_tokens t
+SET used_at = NOW()
+WHERE t.token_hash = $1
+  AND t.purpose = $2
+  AND t.used_at IS NULL
+  AND t.expires_at > NOW()
+  AND (
+    (t.principal_type = 'company_user' AND EXISTS (
+      SELECT 1 FROM company_users cu
+      WHERE cu.id = t.principal_id
+        AND LOWER(cu.email) = LOWER($3)
+        AND cu.deleted_at IS NULL
+    ))
+    OR
+    (t.principal_type = 'employee' AND EXISTS (
+      SELECT 1 FROM employees e
+      WHERE e.id = t.principal_id
+        AND LOWER(e.email) = LOWER($3)
+    ))
+  )
+RETURNING t.id::text, t.principal_type, t.principal_id::text
+`, tokenHash(code), VerifyEmailPurpose, normalizeEmail(email)).Scan(&id, &principalType, &principalID)
 	if err != nil {
 		return nil, ErrInvalidToken
 	}
@@ -606,6 +641,14 @@ func randomToken(size int) (string, error) {
 		return "", err
 	}
 	return base64.RawURLEncoding.EncodeToString(bytes), nil
+}
+
+func randomVerificationCode() (string, error) {
+	value, err := rand.Int(rand.Reader, big.NewInt(900000))
+	if err != nil {
+		return "", err
+	}
+	return fmt.Sprintf("%06d", value.Int64()+100000), nil
 }
 
 func tokenHash(value string) []byte {

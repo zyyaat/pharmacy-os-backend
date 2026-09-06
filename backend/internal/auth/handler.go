@@ -40,8 +40,9 @@ type passwordRequest struct {
 	NewPassword     string `json:"new_password" binding:"required"`
 }
 
-type tokenRequest struct {
-	Token string `json:"token" binding:"required"`
+type verificationRequest struct {
+	Email string `json:"email" binding:"required,email"`
+	Code  string `json:"code" binding:"required"`
 }
 
 type forgotPasswordRequest struct {
@@ -94,13 +95,13 @@ func (h *Handler) register(c *gin.Context) {
 		writeError(c, http.StatusInternalServerError, "registration_failed", "Could not create account")
 		return
 	}
-	token, err := h.service.CreateEmailToken(c.Request.Context(), principal, VerifyEmailPurpose)
+	code, err := h.service.CreateEmailToken(c.Request.Context(), principal, VerifyEmailPurpose)
 	if err != nil {
-		log.Printf("registration verification token failed: %v", err)
+		log.Printf("registration verification code failed: %v", err)
 	}
 	emailSent := false
-	if token != "" {
-		if err := h.mailer.verificationEmail(c.Request.Context(), principal.Email, token); err != nil {
+	if code != "" {
+		if err := h.mailer.verificationEmail(c.Request.Context(), principal.Email, code); err != nil {
 			log.Printf("registration verification email failed: %v", err)
 		} else {
 			emailSent = true
@@ -275,18 +276,18 @@ func (h *Handler) resendVerification(c *gin.Context) {
 	}
 	principal, err := h.service.FindPrincipal(c.Request.Context(), req.Email, normalizePrincipalType(req.AccountType), "")
 	if err == nil && !principal.EmailVerified {
-		token, tokenErr := h.service.CreateEmailToken(c.Request.Context(), principal, VerifyEmailPurpose)
+		code, tokenErr := h.service.CreateEmailToken(c.Request.Context(), principal, VerifyEmailPurpose)
 		if tokenErr != nil {
 			writeError(c, http.StatusInternalServerError, "verification_failed", "Could not create verification request")
 			return
 		}
-		if err := h.mailer.verificationEmail(c.Request.Context(), principal.Email, token); err != nil {
+		if err := h.mailer.verificationEmail(c.Request.Context(), principal.Email, code); err != nil {
 			log.Printf("verification email failed for principal type %s: %v", principal.Type, err)
 			writeError(c, http.StatusServiceUnavailable, "email_service_unavailable", "Email service is not configured")
 			return
 		}
 	}
-	c.JSON(http.StatusOK, gin.H{"message": "If the account needs verification, a link will be sent"})
+	c.JSON(http.StatusOK, gin.H{"message": "If the account needs verification, a code will be sent"})
 }
 
 func (h *Handler) resetPassword(c *gin.Context) {
@@ -311,14 +312,14 @@ func (h *Handler) resetPassword(c *gin.Context) {
 }
 
 func (h *Handler) verifyEmail(c *gin.Context) {
-	var req tokenRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
-		writeError(c, http.StatusBadRequest, "validation_error", "Verification token is required")
+	var req verificationRequest
+	if err := c.ShouldBindJSON(&req); err != nil || !isVerificationCode(req.Code) {
+		writeError(c, http.StatusBadRequest, "validation_error", "A valid 6-digit verification code is required")
 		return
 	}
-	principal, err := h.service.ConsumeEmailToken(c.Request.Context(), req.Token, VerifyEmailPurpose)
+	principal, err := h.service.ConsumeEmailVerificationCode(c.Request.Context(), req.Email, req.Code)
 	if err != nil {
-		writeError(c, http.StatusBadRequest, "invalid_token", "Invalid or expired verification token")
+		writeError(c, http.StatusBadRequest, "invalid_code", "Invalid or expired verification code")
 		return
 	}
 	if err := h.service.MarkEmailVerified(c.Request.Context(), principal); err != nil {
@@ -326,6 +327,18 @@ func (h *Handler) verifyEmail(c *gin.Context) {
 		return
 	}
 	c.JSON(http.StatusOK, gin.H{"message": "Email verified successfully"})
+}
+
+func isVerificationCode(code string) bool {
+	if len(code) != 6 {
+		return false
+	}
+	for _, digit := range code {
+		if digit < '0' || digit > '9' {
+			return false
+		}
+	}
+	return true
 }
 
 func (h *Handler) setAuthCookies(c *gin.Context, tokens *SessionTokens) error {

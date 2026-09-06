@@ -55,7 +55,7 @@ See [`.env.example`](.env.example) for all available environment variables:
 | `DATABASE_URL` | PostgreSQL connection string | - |
 | `AUTH_COOKIE_SECURE` | Set to `true` in production | `false` |
 | `AUTH_COOKIE_DOMAIN` | Optional cookie domain | - |
-| `BREVO_API_KEY` | Brevo API key for verification and password reset email | - |
+| `BREVO_API_KEY` | Brevo API key for verification code and password reset email | - |
 | `MAIL_FROM_EMAIL` | Verified Brevo sender email | - |
 | `MAIL_FROM_NAME` | Sender name | `Pharmacy OS` |
 | `PUBLIC_APP_URL` | Public frontend URL used in email links | - |
@@ -145,7 +145,7 @@ POST /api/v1/auth/logout-all
 POST /api/v1/auth/change-password
 POST /api/v1/auth/forgot-password
 POST /api/v1/auth/reset-password
-POST /api/v1/auth/verify-email
+POST /api/v1/auth/verify-email   # body: {"email":"user@example.com","code":"123456"}
 POST /api/v1/auth/resend-verification
 ```
 

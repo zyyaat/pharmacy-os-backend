@@ -73,6 +73,12 @@ export const authApi = {
       body: JSON.stringify({ email }),
     })
   },
+  verifyEmail(email: string, code: string) {
+    return apiFetch<{ message: string }>('/auth/verify-email', {
+      method: 'POST',
+      body: JSON.stringify({ email, code }),
+    })
+  },
   me() {
     return apiFetch<{ user: Record<string, unknown> }>('/auth/me')
   },

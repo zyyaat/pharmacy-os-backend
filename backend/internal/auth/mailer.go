@@ -7,7 +7,6 @@ import (
 	"fmt"
 	"io"
 	"net/http"
-	"net/url"
 	"strings"
 	"time"
 )
@@ -29,7 +28,7 @@ func newMailer(cfg Config) *mailer {
 }
 
 func (m *mailer) configured() bool {
-	return m.apiKey != "" && m.fromEmail != "" && m.appURL != ""
+	return m.apiKey != "" && m.fromEmail != ""
 }
 
 func (m *mailer) send(ctx context.Context, recipient, subject, html string) error {
@@ -67,15 +66,17 @@ func (m *mailer) send(ctx context.Context, recipient, subject, html string) erro
 	return nil
 }
 
-func (m *mailer) verificationEmail(ctx context.Context, email, token string) error {
-	link := fmt.Sprintf("%s/verify-email?token=%s", m.appURL, url.QueryEscape(token))
+func (m *mailer) verificationEmail(ctx context.Context, email, code string) error {
 	return m.send(ctx, email, "Verify your Pharmacy OS email", fmt.Sprintf(
-		`<p>Welcome to Pharmacy OS.</p><p>Verify your email by clicking <a href="%s">this link</a>.</p><p>This link expires in 24 hours.</p>`,
-		link,
+		`<p>Welcome to Pharmacy OS.</p><p>Your Pharmacy OS verification code is:</p><p style="font-size: 32px; font-weight: 700; letter-spacing: 8px;">%s</p><p>Enter this 6-digit code in the verification screen. It expires in 24 hours.</p>`,
+		code,
 	))
 }
 
 func (m *mailer) resetEmail(ctx context.Context, email, token string) error {
+	if m.appURL == "" {
+		return fmt.Errorf("public app URL is not configured")
+	}
 	link := fmt.Sprintf("%s/reset-password?token=%s", m.appURL, token)
 	return m.send(ctx, email, "Reset your Pharmacy OS password", fmt.Sprintf(
 		`<p>We received a request to reset your Pharmacy OS password.</p><p>Reset it by clicking <a href="%s">this link</a>.</p><p>This link expires in one hour.</p>`,
