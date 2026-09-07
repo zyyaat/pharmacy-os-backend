@@ -61,6 +61,18 @@ See [`.env.example`](.env.example) for all available environment variables:
 | `PUBLIC_APP_URL` | Public frontend URL used in email links | - |
 | `RIVER_DSN` | River Queue DSN | Same as DATABASE_URL |
 | `CORS_ORIGINS` | Allowed CORS origins | `localhost:3000,3001` |
+| `BOOTSTRAP_SUPER_ADMIN_EMAIL` | The only allowed initial platform administrator email | Required in production |
+| `BOOTSTRAP_SUPER_ADMIN_PASSWORD` | One-time secret used only when initializing a new database | Required for a new database |
+| `BOOTSTRAP_SUPER_ADMIN_FIRST_NAME` | Initial platform administrator first name | `Mohamed` |
+| `BOOTSTRAP_SUPER_ADMIN_LAST_NAME` | Initial platform administrator last name | `Admin` |
+| `BOOTSTRAP_SUPER_ADMIN_COMPANY` | Initial platform company name | `Pharmacy OS` |
+
+In production, the backend verifies the singleton Super Admin bootstrap on every
+startup. A new database is initialized only when the bootstrap password secret
+is present. After successful initialization, the password secret may be removed;
+the persisted bootstrap state keeps later restarts idempotent. If a new
+database is provisioned later, add the secret again deliberately for that
+one-time initialization.
 
 ## 📁 Project Structure
 

@@ -133,6 +133,9 @@ func (c *Config) Validate() error {
 		if strings.TrimSpace(c.PublicAppURL) == "" {
 			errors = append(errors, "PUBLIC_APP_URL is required in production")
 		}
+		if strings.TrimSpace(c.BootstrapSuperAdminEmail) == "" {
+			errors = append(errors, "BOOTSTRAP_SUPER_ADMIN_EMAIL is required in production")
+		}
 	}
 
 	if len(errors) > 0 {

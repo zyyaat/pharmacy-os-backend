@@ -6,12 +6,15 @@ import (
 	"fmt"
 	"strings"
 
+	"github.com/jackc/pgx/v5"
 	"golang.org/x/crypto/bcrypt"
 )
 
-// BootstrapSuperAdmin creates the first platform administrator in one transaction.
-// It is intentionally called only from a production startup path when the
-// bootstrap password secret is present. Existing super admins are never changed.
+const superAdminBootstrapKey = "super_admin"
+
+// BootstrapSuperAdmin creates the single platform administrator on a new
+// production database. The database migration provides the singleton table
+// and unique role constraint; this method owns the first data record.
 func (s *Service) BootstrapSuperAdmin(
 	ctx context.Context,
 	email string,
@@ -24,13 +27,8 @@ func (s *Service) BootstrapSuperAdmin(
 	firstName = strings.TrimSpace(firstName)
 	lastName = strings.TrimSpace(lastName)
 	companyName = strings.TrimSpace(companyName)
-	if email == "" || password == "" || firstName == "" || lastName == "" || companyName == "" {
+	if email == "" {
 		return errors.New("bootstrap super admin configuration is incomplete")
-	}
-
-	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
-	if err != nil {
-		return fmt.Errorf("hash bootstrap password: %w", err)
 	}
 
 	tx, err := s.db.Begin(ctx)
@@ -44,18 +42,95 @@ func (s *Service) BootstrapSuperAdmin(
 		return fmt.Errorf("lock super admin bootstrap: %w", err)
 	}
 
-	var hasSuperAdmin bool
+	var statePrincipalID, stateEmail string
+	stateErr := tx.QueryRow(ctx, `
+		SELECT principal_id::text, email
+		FROM platform_bootstrap_state
+		WHERE bootstrap_key = $1
+		FOR UPDATE
+	`, superAdminBootstrapKey).Scan(&statePrincipalID, &stateEmail)
+	if stateErr == nil {
+		var role, existingEmail string
+		var active bool
+		if err := tx.QueryRow(ctx, `
+			SELECT role::text, email, is_active
+			FROM company_users
+			WHERE id = $1 AND deleted_at IS NULL
+		`, statePrincipalID).Scan(&role, &existingEmail, &active); err != nil {
+			return fmt.Errorf("validate bootstrapped super admin: %w", err)
+		}
+		if role != "super_admin" || !active || normalizeEmail(existingEmail) != email || normalizeEmail(stateEmail) != email {
+			return fmt.Errorf("super admin bootstrap state does not match BOOTSTRAP_SUPER_ADMIN_EMAIL")
+		}
+		return nil
+	}
+	if !errors.Is(stateErr, pgx.ErrNoRows) {
+		return fmt.Errorf("read super admin bootstrap state: %w", stateErr)
+	}
+
+	// Existing databases may contain the account created by the earlier
+	// bootstrap implementation. Adopt it only when it matches the configured
+	// identity; never silently choose a different administrator.
+	var existingID, existingEmail string
+	var superAdmins int
+	if err := tx.QueryRow(ctx, `
+		SELECT COUNT(*)
+		FROM company_users
+		WHERE role = 'super_admin'
+	`).Scan(&superAdmins); err != nil {
+		return fmt.Errorf("count existing super admins: %w", err)
+	}
+	if superAdmins > 1 {
+		return fmt.Errorf("found %d super admins; manual cleanup is required before bootstrap", superAdmins)
+	}
+	if superAdmins == 1 {
+		var deleted bool
+		if err := tx.QueryRow(ctx, `
+			SELECT id::text, email, deleted_at IS NOT NULL
+			FROM company_users
+			WHERE role = 'super_admin'
+			LIMIT 1
+		`).Scan(&existingID, &existingEmail, &deleted); err != nil {
+			return fmt.Errorf("read existing super admin: %w", err)
+		}
+		if deleted {
+			return errors.New("the existing super admin is deleted; manual recovery is required")
+		}
+		if normalizeEmail(existingEmail) != email {
+			return fmt.Errorf("an active super admin already exists with a different email")
+		}
+		if _, err := tx.Exec(ctx, `
+			INSERT INTO platform_bootstrap_state (bootstrap_key, principal_id, email)
+			VALUES ($1, $2, $3)
+		`, superAdminBootstrapKey, existingID, email); err != nil {
+			return fmt.Errorf("adopt existing super admin bootstrap state: %w", err)
+		}
+		if err := tx.Commit(ctx); err != nil {
+			return fmt.Errorf("commit existing super admin bootstrap state: %w", err)
+		}
+		return nil
+	}
+
+	if password == "" || firstName == "" || lastName == "" || companyName == "" {
+		return errors.New("bootstrap super admin password and profile configuration are required for a new database")
+	}
+
+	var emailExists bool
 	if err := tx.QueryRow(ctx, `
 		SELECT EXISTS (
-			SELECT 1
-			FROM company_users
-			WHERE role = 'super_admin' AND deleted_at IS NULL
+			SELECT 1 FROM company_users
+			WHERE LOWER(email) = $1 AND deleted_at IS NULL
 		)
-	`).Scan(&hasSuperAdmin); err != nil {
-		return fmt.Errorf("check existing super admin: %w", err)
+	`, email).Scan(&emailExists); err != nil {
+		return fmt.Errorf("check bootstrap email: %w", err)
 	}
-	if hasSuperAdmin {
-		return nil
+	if emailExists {
+		return fmt.Errorf("bootstrap email already belongs to a non-super-admin account")
+	}
+
+	hash, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
+	if err != nil {
+		return fmt.Errorf("hash bootstrap password: %w", err)
 	}
 
 	var companyID string
@@ -122,6 +197,13 @@ func (s *Service) BootstrapSuperAdmin(
 		DO UPDATE SET revoked_at = NULL, revocation_reason = NULL
 	`, userID); err != nil {
 		return fmt.Errorf("grant bootstrap permissions: %w", err)
+	}
+
+	if _, err := tx.Exec(ctx, `
+		INSERT INTO platform_bootstrap_state (bootstrap_key, principal_id, email)
+		VALUES ($1, $2, $3)
+	`, superAdminBootstrapKey, userID, email); err != nil {
+		return fmt.Errorf("record super admin bootstrap state: %w", err)
 	}
 
 	if err := tx.Commit(ctx); err != nil {

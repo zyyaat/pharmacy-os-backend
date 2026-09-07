@@ -4,7 +4,6 @@ package main
 import (
 	"context"
 	"log"
-	"strings"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -40,7 +39,7 @@ func main() {
 		log.Fatalf("Failed to connect to database: %v", err)
 	}
 
-	if cfg.IsProduction() && strings.TrimSpace(cfg.BootstrapSuperAdminPassword) != "" {
+	if cfg.IsProduction() {
 		bootstrap := auth.NewService(db, auth.Config{})
 		if err := bootstrap.BootstrapSuperAdmin(
 			ctx,
