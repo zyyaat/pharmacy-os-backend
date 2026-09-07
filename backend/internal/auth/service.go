@@ -10,6 +10,7 @@ import (
 	"fmt"
 	"math/big"
 	"strings"
+	"sync"
 	"time"
 
 	"github.com/jackc/pgx/v5"
@@ -36,6 +37,7 @@ const (
 var (
 	ErrInvalidCredentials = errors.New("invalid email or password")
 	ErrAccountLocked      = errors.New("account temporarily locked")
+	ErrLoginRateLimited   = errors.New("login temporarily rate limited")
 	ErrAccountInactive    = errors.New("account inactive")
 	ErrEmailNotVerified   = errors.New("email not verified")
 	ErrInvalidToken       = errors.New("invalid or expired token")
@@ -87,8 +89,10 @@ type RequestMeta struct {
 }
 
 type Service struct {
-	db  *pgxpool.Pool
-	cfg Config
+	db                  *pgxpool.Pool
+	cfg                 Config
+	loginThrottleMu     sync.Mutex
+	superAdminThrottles map[string]superAdminThrottle
 }
 
 func NewService(db *pgxpool.Pool, cfg Config) *Service {
@@ -98,7 +102,11 @@ func NewService(db *pgxpool.Pool, cfg Config) *Service {
 	if cfg.RefreshTTL <= 0 {
 		cfg.RefreshTTL = 30 * 24 * time.Hour
 	}
-	return &Service{db: db, cfg: cfg}
+	return &Service{
+		db:                  db,
+		cfg:                 cfg,
+		superAdminThrottles: make(map[string]superAdminThrottle),
+	}
 }
 
 func (s *Service) Config() Config {
@@ -187,13 +195,21 @@ func (s *Service) Login(ctx context.Context, email, password, principalType, ten
 		return nil, nil, ErrInvalidCredentials
 	}
 
-	if principal.LockedUntil != nil && time.Now().Before(*principal.LockedUntil) {
+	if principal.Role != "super_admin" && principal.LockedUntil != nil && time.Now().Before(*principal.LockedUntil) {
 		return nil, nil, ErrAccountLocked
 	}
+	superAdminRateLimited := principal.Role == "super_admin" &&
+		s.superAdminLoginRateLimited(principal.Email, meta.IPAddress)
 	if !principal.IsActive {
 		return nil, nil, ErrAccountInactive
 	}
 	if principal.PasswordHash == "" || bcrypt.CompareHashAndPassword([]byte(principal.PasswordHash), []byte(password)) != nil {
+		if principal.Role == "super_admin" {
+			if superAdminRateLimited || s.recordSuperAdminFailure(principal.Email, meta.IPAddress) {
+				return nil, nil, ErrLoginRateLimited
+			}
+			return nil, nil, ErrInvalidCredentials
+		}
 		if locked, updateErr := s.recordFailedLogin(ctx, principal); updateErr == nil && locked {
 			return nil, nil, ErrAccountLocked
 		}
@@ -205,6 +221,9 @@ func (s *Service) Login(ctx context.Context, email, password, principalType, ten
 
 	if err := s.recordSuccessfulLogin(ctx, principal); err != nil {
 		return nil, nil, fmt.Errorf("update login state: %w", err)
+	}
+	if principal.Role == "super_admin" {
+		s.clearSuperAdminFailures(principal.Email, meta.IPAddress)
 	}
 	tokens, err := s.createSession(ctx, principal, realm, meta)
 	if err != nil {
@@ -702,6 +721,67 @@ func (s *Service) recordSuccessfulLogin(ctx context.Context, principal *Principa
 	}
 	_, err := s.db.Exec(ctx, query, principal.ID)
 	return err
+}
+
+type superAdminThrottle struct {
+	failures     int
+	blockedUntil time.Time
+	lastFailure  time.Time
+}
+
+const (
+	superAdminFailureWindow = 15 * time.Minute
+	superAdminFailureLimit  = 5
+)
+
+func (s *Service) superAdminThrottleKey(email, ipAddress string) string {
+	return normalizeEmail(email) + "|" + strings.TrimSpace(ipAddress)
+}
+
+func (s *Service) recordSuperAdminFailure(email, ipAddress string) bool {
+	now := time.Now()
+	key := s.superAdminThrottleKey(email, ipAddress)
+
+	s.loginThrottleMu.Lock()
+	defer s.loginThrottleMu.Unlock()
+
+	entry := s.superAdminThrottles[key]
+	if !entry.lastFailure.IsZero() && now.Sub(entry.lastFailure) >= superAdminFailureWindow {
+		entry = superAdminThrottle{}
+	}
+	entry.failures++
+	entry.lastFailure = now
+	if entry.failures >= superAdminFailureLimit {
+		entry.blockedUntil = now.Add(superAdminFailureWindow)
+	}
+	s.superAdminThrottles[key] = entry
+	return !entry.blockedUntil.IsZero() && now.Before(entry.blockedUntil)
+}
+
+func (s *Service) superAdminLoginRateLimited(email, ipAddress string) bool {
+	now := time.Now()
+	key := s.superAdminThrottleKey(email, ipAddress)
+
+	s.loginThrottleMu.Lock()
+	defer s.loginThrottleMu.Unlock()
+
+	entry, ok := s.superAdminThrottles[key]
+	if !ok {
+		return false
+	}
+	if !entry.blockedUntil.IsZero() && now.Before(entry.blockedUntil) {
+		return true
+	}
+	if !entry.lastFailure.IsZero() && now.Sub(entry.lastFailure) >= superAdminFailureWindow {
+		delete(s.superAdminThrottles, key)
+	}
+	return false
+}
+
+func (s *Service) clearSuperAdminFailures(email, ipAddress string) {
+	s.loginThrottleMu.Lock()
+	defer s.loginThrottleMu.Unlock()
+	delete(s.superAdminThrottles, s.superAdminThrottleKey(email, ipAddress))
 }
 
 func (s *Service) updatePassword(ctx context.Context, principal *Principal, hash string) error {

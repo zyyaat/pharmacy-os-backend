@@ -150,6 +150,9 @@ func (h *Handler) loginForRealm(c *gin.Context, realm AuthRealm) {
 		switch {
 		case errors.Is(err, ErrAccountLocked):
 			writeError(c, http.StatusLocked, "account_locked", "Account temporarily locked")
+		case errors.Is(err, ErrLoginRateLimited):
+			c.Header("Retry-After", "900")
+			writeError(c, http.StatusTooManyRequests, "login_rate_limited", "Too many login attempts. Try again shortly.")
 		case errors.Is(err, ErrAccountInactive):
 			writeError(c, http.StatusForbidden, "account_inactive", "Account is inactive")
 		case errors.Is(err, ErrEmailNotVerified):
