@@ -9,3 +9,4 @@
 - [Vercel lockfile registry](vercel-lockfile-registry.md) — package locks shared with Vercel must use public npm tarball URLs, never Replit's internal package firewall host.
 - [Initial platform admin provisioning](initial-platform-admin.md) — the first production Super Admin is bootstrapped once at backend startup with a temporary managed secret, then the secret must be removed.
 - [Critical account lockout policy](critical-account-lockout.md) — privileged platform accounts should not be disabled by credential failures; use scoped throttling and stronger authentication instead.
+- [Development database migrations](development-database-migrations.md) — the backend does not apply repository migrations at startup, so development schema state must be checked separately.

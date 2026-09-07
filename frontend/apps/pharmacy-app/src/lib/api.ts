@@ -159,6 +159,9 @@ export interface PharmacyInventoryItem {
   expiry_date: string | null
   days_until_expiry: number | null
   selling_price: number
+  partial_selling_price: number
+  packaging_type: 'WHOLE_ONLY' | 'BOX_STRIP'
+  units_per_box: number
   min_stock_level: number
   branch_name: string
   status: string
@@ -215,6 +218,24 @@ export const pharmacyApi = {
   getInventory() {
     return apiFetch<{ data: PharmacyInventoryItem[] }>('/pharmacy/inventory')
   },
+  listProducts(search = '') {
+    return apiFetch<{ data: PharmacyProduct[] }>(`/pharmacy/products${search ? `?search=${encodeURIComponent(search)}` : ''}`)
+  },
+  createProduct(input: CreatePharmacyProductInput) {
+    return apiFetch<{ data: { id: string; initial_base_quantity: number } }>('/pharmacy/products', {
+      method: 'POST',
+      body: JSON.stringify(input),
+    })
+  },
+  lookupPOSProduct(barcode: string) {
+    return apiFetch<{ data: POSProduct }>(`/pharmacy/pos/products?barcode=${encodeURIComponent(barcode)}`)
+  },
+  createPOSSale(items: POSSaleItem[]) {
+    return apiFetch<{ data: { sale_id: string; total_amount: number } }>('/pharmacy/pos/sales', {
+      method: 'POST',
+      body: JSON.stringify({ items }),
+    })
+  },
   getEmployees() {
     return apiFetch<{ data: PharmacyEmployee[]; total: number }>('/pharmacy/employees')
   },
@@ -224,4 +245,42 @@ export const pharmacyApi = {
   getAttendance() {
     return apiFetch<{ data: PharmacyAttendance[]; total: number }>('/pharmacy/attendance')
   },
+}
+
+export interface PharmacyProduct {
+  id: string
+  name: string
+  generic_name: string
+  barcode: string
+  packaging_type: 'WHOLE_ONLY' | 'BOX_STRIP'
+  units_per_box: number
+  selling_price: number
+  partial_selling_price: number
+  stock: number
+}
+
+export interface POSProduct extends PharmacyProduct {}
+
+export interface CreatePharmacyProductInput {
+  name: string
+  generic_name: string
+  dosage_form: string
+  strength: string
+  barcode: string
+  packaging_type: 'WHOLE_ONLY' | 'BOX_STRIP'
+  units_per_box: number
+  cost_price: number
+  selling_price: number
+  partial_selling_price: number | null
+  min_stock_level: number
+  initial_boxes: number
+  initial_strips: number
+  batch_number: string
+  expiry_date: string
+}
+
+export interface POSSaleItem {
+  pharmacy_product_id: string
+  sale_unit: 'box' | 'strip'
+  quantity: number
 }

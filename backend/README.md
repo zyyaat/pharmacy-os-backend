@@ -138,6 +138,10 @@ SQL migration files are located in the [`migrations/`](migrations/) directory:
 5. `00000000000005_holding_company.sql` - Multi-tenant support
 6. `00000000000006_go_auth.sql` - Go-owned sessions and email tokens
 7. `00000000000007_inventory_idempotency.sql` - Retry-safe inventory mutations
+8. `00000000000008_auth_realms.sql` - Separate platform and pharmacy sessions
+9. `00000000000009_publish_compatible_views.sql` - Stable published views
+10. `00000000000010_platform_super_admin_singleton.sql` - One-time admin bootstrap state
+11. `00000000000011_packaging_and_sales.sql` - Pharmacy packaging rules and POS sales ledger
 
 Apply the SQL migrations using your PostgreSQL provider in this order. The
 inventory adjustment endpoint also requires the idempotency column and unique

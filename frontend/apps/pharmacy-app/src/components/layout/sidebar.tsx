@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import { useState } from 'react'
-import { BarChart3, CalendarCheck, ChevronLeft, ChevronRight, LayoutDashboard, LogOut, Package, Settings, Store, Users, X } from 'lucide-react'
+import { BarChart3, CalendarCheck, ChevronLeft, ChevronRight, LayoutDashboard, LogOut, Package, ReceiptText, Settings, Store, Users, X } from 'lucide-react'
 import { cn } from '@/lib/utils'
 import { Button } from '@/components/ui'
 import { useAuth } from '@/hooks/useAuth'
@@ -12,6 +12,7 @@ import { usePharmacyContext } from '@/hooks/usePharmacyContext'
 const items = [
   { title: 'لوحة التحكم', href: '/', icon: LayoutDashboard },
   { title: 'المخزون والأدوية', href: '/inventory', icon: Package },
+  { title: 'نقطة البيع', href: '/pos', icon: ReceiptText },
   { title: 'الموظفون', href: '/employees', icon: Users },
   { title: 'الحضور والانصراف', href: '/attendance', icon: CalendarCheck },
   { title: 'الفروع', href: '/branches', icon: Store },

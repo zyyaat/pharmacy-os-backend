@@ -2,9 +2,9 @@
 
 import Link from 'next/link'
 import { useEffect, useState } from 'react'
-import { Package, Search } from 'lucide-react'
+import { Package, Plus, Search, ShoppingCart } from 'lucide-react'
 import { pharmacyApi, type PharmacyInventoryItem } from '@/lib/api'
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui'
+import { Button, Card, CardContent, CardHeader, CardTitle } from '@/components/ui'
 
 export default function InventoryPage() {
   const [items, setItems] = useState<PharmacyInventoryItem[]>([])
@@ -33,6 +33,10 @@ export default function InventoryPage() {
           <h1 className="text-2xl font-bold">المخزون والأدوية</h1>
           <p className="mt-2 text-sm text-muted-foreground">البيانات الفعلية للصيدلية الحالية فقط</p>
         </div>
+        <div className="flex flex-wrap gap-2">
+          <Button asChild variant="outline"><Link href="/pos"><ShoppingCart className="h-4 w-4" />فتح نقطة البيع</Link></Button>
+          <Button asChild><Link href="/inventory/new"><Plus className="h-4 w-4" />إضافة منتج</Link></Button>
+        </div>
       </div>
 
       <Card>
@@ -59,7 +63,11 @@ export default function InventoryPage() {
                       <td className="p-3"><Link href={`/inventory/${item.batch_id}`} className="font-semibold hover:text-primary">{item.product_name}</Link><span className="mt-1 block text-xs text-muted-foreground">{item.generic_name || item.brand_name || item.strength}</span></td>
                       <td className="p-3">{item.batch_number}</td>
                       <td className="p-3">{item.branch_name || 'كل الفروع'}</td>
-                      <td className="p-3 font-semibold">{new Intl.NumberFormat('ar-EG').format(item.quantity)} {item.unit}</td>
+                      <td className="p-3 font-semibold">
+                        {item.packaging_type === 'BOX_STRIP'
+                          ? `${Math.floor(item.quantity / item.units_per_box)} علبة و${item.quantity % item.units_per_box} شريط`
+                          : `${new Intl.NumberFormat('ar-EG').format(item.quantity)} عبوة`}
+                      </td>
                       <td className="p-3">{item.expiry_date || '—'}</td>
                       <td className="p-3">{item.status === 'low_stock' ? 'منخفض' : item.status === 'expiring_soon' ? 'قريب الانتهاء' : item.status === 'quarantined' ? 'محجوز' : 'طبيعي'}</td>
                     </tr>

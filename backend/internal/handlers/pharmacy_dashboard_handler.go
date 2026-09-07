@@ -119,8 +119,8 @@ func (h *Handler) GetPharmacyInventory(c *gin.Context) {
 		SELECT batch_id, pharmacy_product_id, global_product_id, product_name,
 		       generic_name, brand_name, barcode, dosage_form, strength,
 		       batch_number, unit, quantity, cost_per_unit, total_cost,
-		       expiry_date, days_until_expiry, selling_price, min_stock_level,
-		       branch_name, status
+		       expiry_date, days_until_expiry, selling_price, partial_selling_price,
+		       packaging_type, units_per_box, min_stock_level, branch_name, status
 		FROM current_inventory
 		WHERE pharmacy_id = $1
 		ORDER BY product_name, expiry_date NULLS LAST
@@ -138,13 +138,16 @@ func (h *Handler) GetPharmacyInventory(c *gin.Context) {
 		var (
 			batchID, pharmacyProductID, globalProductID, name, dosageForm, batchNumber, unit, status string
 			genericName, brandName, barcode, strength, branchName, expiryDate, daysUntilExpiry       interface{}
-			quantity, costPerUnit, totalCost, sellingPrice, minStockLevel                            float64
+			quantity, costPerUnit, totalCost, sellingPrice, partialSellingPrice, minStockLevel       float64
+			packagingType                                                                            string
+			unitsPerBox                                                                              int
 		)
 		if err := rows.Scan(
 			&batchID, &pharmacyProductID, &globalProductID, &name,
 			&genericName, &brandName, &barcode, &dosageForm, &strength,
 			&batchNumber, &unit, &quantity, &costPerUnit, &totalCost,
-			&expiryDate, &daysUntilExpiry, &sellingPrice, &minStockLevel,
+			&expiryDate, &daysUntilExpiry, &sellingPrice, &partialSellingPrice,
+			&packagingType, &unitsPerBox, &minStockLevel,
 			&branchName, &status,
 		); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "inventory_query_failed", "message": "Could not read inventory"})
@@ -158,7 +161,9 @@ func (h *Handler) GetPharmacyInventory(c *gin.Context) {
 			"unit": unit, "quantity": quantity, "cost_per_unit": costPerUnit,
 			"total_cost": totalCost, "expiry_date": expiryDate,
 			"days_until_expiry": daysUntilExpiry, "selling_price": sellingPrice,
-			"min_stock_level": minStockLevel, "branch_name": branchName, "status": status,
+			"partial_selling_price": partialSellingPrice, "packaging_type": packagingType,
+			"units_per_box": unitsPerBox, "min_stock_level": minStockLevel,
+			"branch_name": branchName, "status": status,
 		})
 	}
 	if err := rows.Err(); err != nil {
