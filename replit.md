@@ -105,3 +105,8 @@ After publishing the backend, set `NEXT_PUBLIC_API_URL` in the Vercel environmen
 for `pharmacy-app` and `admin-dashboard` to the published backend URL followed by
 `/api/v1` (for example, `https://your-backend.replit.app/api/v1`). Keep the backend
 `CORS_ORIGINS` values aligned with the exact Vercel origins, without trailing slashes.
+
+For the Marketing Site, set `NEXT_PUBLIC_PHARMACY_APP_URL` to the public Pharmacy
+App origin (for example, `https://pharmacy-app-theta-nine.vercel.app`). The
+Marketing CTA and `/register` redirect must always send users to the Pharmacy App
+registration page, not to a route on the Marketing Site.

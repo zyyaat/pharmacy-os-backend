@@ -1,6 +1,9 @@
+const defaultProductionPharmacyAppUrl = 'https://pharmacy-app-theta-nine.vercel.app'
+
 export function getConfiguredPharmacyAppUrl(): string | null {
   const configured = process.env.NEXT_PUBLIC_PHARMACY_APP_URL
-  return configured ? configured.replace(/\/$/, '') : null
+  if (configured) return configured.replace(/\/$/, '')
+  return process.env.NODE_ENV === 'production' ? defaultProductionPharmacyAppUrl : null
 }
 
 export function getPharmacyAppUrl(): string {
