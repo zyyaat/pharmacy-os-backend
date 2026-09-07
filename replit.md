@@ -26,9 +26,9 @@ The frontend workflows can also run independently on dedicated ports,
 while `Backend API` provides the shared Go API:
 
 ```bash
-cd frontend/apps/admin-dashboard && npm install
-cd frontend/apps/pharmacy-app && npm install
-cd frontend/apps/marketing && npm install
+cd frontend/apps/admin-dashboard && npm ci
+cd frontend/apps/pharmacy-app && npm ci
+cd frontend/apps/marketing && npm ci
 cd backend && GOTOOLCHAIN=auto GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct GOFLAGS=-mod=vendor go run ./cmd/server
 cd frontend/apps/admin-dashboard && NEXT_PUBLIC_API_URL=/api/v1 npm run dev -- -p 5000
 ```
@@ -40,7 +40,7 @@ root:
 cd backend && GOTOOLCHAIN=auto GOSUMDB=sum.golang.org GOPROXY=https://proxy.golang.org,direct GOFLAGS=-mod=vendor go run ./cmd/server
 ```
 
-The Replit-managed PostgreSQL database is connected automatically through `DATABASE_URL` and the `PG*` environment variables. The active development schema is created by migrations `00000000000001_foundation.sql` through `00000000000009_publish_compatible_views.sql`; `00000000000001_init.sql` is an older legacy schema and is not part of the active migration sequence.
+The Replit-managed PostgreSQL database is connected automatically through `DATABASE_URL` and the `PG*` environment variables. The active development schema is created by migrations `00000000000001_foundation.sql` through `00000000000011_packaging_and_sales.sql`; `00000000000001_init.sql` and `00000000000002_permissions_system.sql` are older legacy/placeholder files and are not part of the active migration sequence. Apply the active migrations in filename order to a new development database before using the API.
 
 The frontend workflows use separate local and external preview ports, so they do
 not overwrite one another:
@@ -83,7 +83,7 @@ Set `CORS_ORIGINS` to the exact Vercel frontend origins, without trailing slashe
 https://your-frontend.vercel.app
 ```
 
-Apply `backend/migrations/00000000000006_go_auth.sql` before using the auth endpoints.
+Apply the active migrations, including `backend/migrations/00000000000006_go_auth.sql`, before using the auth endpoints.
 The Go API owns authentication: passwords, email tokens, opaque sessions, cookie
 rotation, revocation, CSRF validation, and realm separation. Platform and
 pharmacy apps use separate login/me/refresh/logout routes and cookies. Platform
