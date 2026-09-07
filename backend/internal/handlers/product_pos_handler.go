@@ -105,7 +105,7 @@ func (h *Handler) ListPharmacyProducts(c *gin.Context) {
 func (h *Handler) CreatePharmacyProduct(c *gin.Context) {
 	principal, ok := auth.PrincipalFromContext(c)
 	if !ok || principal.PharmacyID == "" || principal.ID == "" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "pharmacy_employee_required", "message": "حساب موظف صيدلية مطلوب"})
+		c.JSON(http.StatusForbidden, gin.H{"error": "pharmacy_mutation_account_required", "message": "حساب مدير أو موظف صيدلية مطلوب"})
 		return
 	}
 
@@ -169,6 +169,7 @@ func (h *Handler) CreatePharmacyProduct(c *gin.Context) {
 	if request.PackagingType == packagingBoxStrip {
 		unitCost = request.CostPrice / float64(request.UnitsPerBox)
 	}
+	employeeID, companyUserID := actorIDs(principal)
 
 	tx, err := h.db.Begin(c.Request.Context())
 	if err != nil {
@@ -192,9 +193,9 @@ func (h *Handler) CreatePharmacyProduct(c *gin.Context) {
 			name, generic_name, dosage_form, strength, barcode, default_unit,
 			product_category, requires_prescription, is_active, created_by
 		) VALUES ($1, NULLIF($2, ''), $3::dosage_form, NULLIF($4, ''), $5, $6::unit_type,
-		          'medication'::product_category, 'no'::prescription_required, true, $7)
+		          'medication'::product_category, 'no'::prescription_required, true, NULLIF($7, '')::uuid)
 		RETURNING id::text
-	`, request.Name, request.GenericName, request.DosageForm, request.Strength, request.Barcode, defaultUnit, principal.ID).Scan(&globalProductID)
+	`, request.Name, request.GenericName, request.DosageForm, request.Strength, request.Barcode, defaultUnit, employeeID).Scan(&globalProductID)
 	if err != nil {
 		var pgErr *pgconn.PgError
 		if errors.As(err, &pgErr) && pgErr.Code == "23505" {
@@ -231,9 +232,9 @@ func (h *Handler) CreatePharmacyProduct(c *gin.Context) {
 			INSERT INTO inventory_batches (
 				pharmacy_product_id, branch_id, batch_number, quantity, unit,
 				cost_per_unit, expiry_date, received_by, reference_type
-			) VALUES ($1, $2, $3, $4, $5::unit_type, $6, NULLIF($7, '')::date, $8, 'opening_balance')
+			) VALUES ($1, $2, $3, $4, $5::unit_type, $6, NULLIF($7, '')::date, NULLIF($8, '')::uuid, 'opening_balance')
 			RETURNING id::text
-		`, pharmacyProductID, branchID, request.BatchNumber, baseQuantity, baseUnit, unitCost, request.ExpiryDate, principal.ID).Scan(&batchID)
+		`, pharmacyProductID, branchID, request.BatchNumber, baseQuantity, baseUnit, unitCost, request.ExpiryDate, employeeID).Scan(&batchID)
 		if err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "product_create_failed", "message": "تعذر إنشاء رصيد المخزون"})
 			return
@@ -241,9 +242,9 @@ func (h *Handler) CreatePharmacyProduct(c *gin.Context) {
 		if _, err = tx.Exec(c.Request.Context(), `
 			INSERT INTO stock_movements (
 				batch_id, movement_type, quantity, unit, quantity_before,
-				quantity_after, unit_cost, total_cost, created_by, reason
-			) VALUES ($1, 'purchase'::movement_type, $2, $3::unit_type, 0, $2, $4, $5, $6, 'opening_balance')
-		`, batchID, baseQuantity, baseUnit, unitCost, baseQuantity*unitCost, principal.ID); err != nil {
+				quantity_after, unit_cost, total_cost, created_by, created_by_company_user_id, reason
+			) VALUES ($1, 'purchase'::movement_type, $2, $3::unit_type, 0, $2, $4, $5, NULLIF($6, '')::uuid, NULLIF($7, '')::uuid, 'opening_balance')
+		`, batchID, baseQuantity, baseUnit, unitCost, baseQuantity*unitCost, employeeID, companyUserID); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "product_create_failed", "message": "تعذر تسجيل حركة المخزون"})
 			return
 		}
@@ -308,7 +309,7 @@ func (h *Handler) LookupPOSProduct(c *gin.Context) {
 func (h *Handler) CreatePOSSale(c *gin.Context) {
 	principal, ok := auth.PrincipalFromContext(c)
 	if !ok || principal.PharmacyID == "" || principal.ID == "" {
-		c.JSON(http.StatusForbidden, gin.H{"error": "pharmacy_employee_required", "message": "حساب موظف صيدلية مطلوب"})
+		c.JSON(http.StatusForbidden, gin.H{"error": "pharmacy_mutation_account_required", "message": "حساب مدير أو موظف صيدلية مطلوب"})
 		return
 	}
 	var request posSaleRequest
@@ -321,6 +322,7 @@ func (h *Handler) CreatePOSSale(c *gin.Context) {
 		c.JSON(http.StatusBadRequest, gin.H{"error": "branch_required", "message": "يجب تحديد فرع قبل إتمام البيع"})
 		return
 	}
+	employeeID, companyUserID := actorIDs(principal)
 
 	tx, err := h.db.Begin(c.Request.Context())
 	if err != nil {
@@ -338,9 +340,9 @@ func (h *Handler) CreatePOSSale(c *gin.Context) {
 
 	var saleID string
 	if err := tx.QueryRow(c.Request.Context(), `
-		INSERT INTO sales (pharmacy_id, branch_id, employee_id)
-		VALUES ($1, $2, $3) RETURNING id::text
-	`, principal.PharmacyID, branchID, principal.ID).Scan(&saleID); err != nil {
+		INSERT INTO sales (pharmacy_id, branch_id, employee_id, company_user_id)
+		VALUES ($1, $2, NULLIF($3, '')::uuid, NULLIF($4, '')::uuid) RETURNING id::text
+	`, principal.PharmacyID, branchID, employeeID, companyUserID).Scan(&saleID); err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "sale_failed", "message": "تعذر إنشاء الفاتورة"})
 		return
 	}
@@ -413,6 +415,7 @@ func sellPOSItem(c *gin.Context, tx interface {
 		unitFactor = float64(unitsPerBox)
 		unitPrice = boxPrice
 	}
+	employeeID, companyUserID := actorIDs(principal)
 	requiredBase := item.Quantity * unitFactor
 	rows, err := tx.Query(c.Request.Context(), `
 		SELECT ib.id::text, ib.quantity::float8, ib.unit::text, ib.cost_per_unit::float8
@@ -452,10 +455,10 @@ func sellPOSItem(c *gin.Context, tx interface {
 			INSERT INTO stock_movements (
 				batch_id, movement_type, quantity, unit, reference_type,
 				reference_id, quantity_before, quantity_after, unit_cost,
-				total_cost, created_by, reason
+				total_cost, created_by, created_by_company_user_id, reason
 			) VALUES ($1, 'sale'::movement_type, $2, $3::unit_type, 'sale', $4,
-			          $5, $6, $7, $8, $9, 'pos_sale')
-		`, batchID, -take, baseUnit, saleID, available, after, costPerUnit, -take*costPerUnit, principal.ID); err != nil {
+			          $5, $6, $7, $8, NULLIF($9, '')::uuid, NULLIF($10, '')::uuid, 'pos_sale')
+		`, batchID, -take, baseUnit, saleID, available, after, costPerUnit, -take*costPerUnit, employeeID, companyUserID); err != nil {
 			return 0, err
 		}
 		if _, err := tx.Exec(c.Request.Context(), `UPDATE inventory_batches SET quantity = $2, updated_at = NOW() WHERE id = $1`, batchID, after); err != nil {
@@ -503,6 +506,19 @@ func findBranchWithQuery(c *gin.Context, queryRow func(context.Context, string, 
 		LIMIT 1
 	`, pharmacyID).Scan(&branchID)
 	return branchID, err
+}
+
+func actorIDs(principal *auth.Principal) (employeeID, companyUserID string) {
+	if principal == nil {
+		return "", ""
+	}
+	if principal.Type == auth.EmployeePrincipal {
+		return principal.ID, ""
+	}
+	if principal.Type == auth.CompanyUserPrincipal {
+		return "", principal.ID
+	}
+	return "", ""
 }
 
 func isFiniteProductNumber(value float64) bool {

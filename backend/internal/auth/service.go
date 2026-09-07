@@ -481,12 +481,24 @@ func (s *Service) RegisterCompany(ctx context.Context, companyName, companyEmail
 	}
 	defer tx.Rollback(ctx)
 
+	var trialDays int
+	if err := tx.QueryRow(ctx, `
+		SELECT COALESCE((setting_value->>'default_trial_days')::int, 30)
+		FROM platform_settings
+		WHERE setting_key = 'trial'
+	`).Scan(&trialDays); err != nil {
+		return nil, fmt.Errorf("load default trial duration: %w", err)
+	}
+	if trialDays < 1 {
+		trialDays = 30
+	}
+
 	var companyID string
 	if err := tx.QueryRow(ctx, `
-		INSERT INTO companies (name, email, status, plan)
-		VALUES ($1, $2, 'trial', 'free')
+		INSERT INTO companies (name, email, status, plan, trial_ends_at)
+		VALUES ($1, $2, 'trial', 'free', NOW() + ($3 * INTERVAL '1 day'))
 		RETURNING id::text
-	`, strings.TrimSpace(companyName), normalizeEmail(companyEmail)).Scan(&companyID); err != nil {
+	`, strings.TrimSpace(companyName), normalizeEmail(companyEmail), trialDays).Scan(&companyID); err != nil {
 		return nil, fmt.Errorf("create company: %w", err)
 	}
 
@@ -494,10 +506,11 @@ func (s *Service) RegisterCompany(ctx context.Context, companyName, companyEmail
 	if err := tx.QueryRow(ctx, `
 		INSERT INTO accounts (
 			company_id, company_name, contact_email, status,
-			subscription_plan, default_currency, timezone, locale
-		) VALUES ($1, $2, $3, 'trial', 'free', 'EGP', 'Africa/Cairo', 'ar-EG')
+			subscription_plan, default_currency, timezone, locale, trial_ends_at
+		) VALUES ($1, $2, $3, 'trial', 'free', 'EGP', 'Africa/Cairo', 'ar-EG',
+		          NOW() + ($4 * INTERVAL '1 day'))
 		RETURNING id::text
-	`, companyID, strings.TrimSpace(companyName), normalizeEmail(companyEmail)).Scan(&accountID); err != nil {
+	`, companyID, strings.TrimSpace(companyName), normalizeEmail(companyEmail), trialDays).Scan(&accountID); err != nil {
 		return nil, fmt.Errorf("create account: %w", err)
 	}
 

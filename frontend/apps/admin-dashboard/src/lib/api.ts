@@ -400,6 +400,21 @@ export const permissionsApi = {
   },
 }
 
+export const platformSettingsApi = {
+  async getTrialSettings() {
+    const response = await apiFetch<{ data: { default_trial_days: number } }>('/platform-admin/settings')
+    return response.data
+  },
+
+  async updateTrialSettings(defaultTrialDays: number) {
+    const response = await apiFetch<{ data: { default_trial_days: number } }>('/platform-admin/settings', {
+      method: 'PATCH',
+      body: JSON.stringify({ default_trial_days: defaultTrialDays }),
+    })
+    return response.data
+  },
+}
+
 // ============================================
 // Health Check
 // ============================================
@@ -421,5 +436,6 @@ export const api = {
   accounts: accountsApi,
   dashboard: dashboardApi,
   permissions: permissionsApi,
+  platformSettings: platformSettingsApi,
   healthCheck,
 }

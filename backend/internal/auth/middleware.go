@@ -79,6 +79,26 @@ func RequireEmployeePrincipal() gin.HandlerFunc {
 	}
 }
 
+// RequirePharmacyMutationPrincipal allows pharmacy employees and company
+// administrators/managers to perform pharmacy mutations. Company viewers are
+// intentionally kept read-only.
+func RequirePharmacyMutationPrincipal() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		principal, ok := PrincipalFromContext(c)
+		if !ok || principal.PharmacyID == "" || principal.ID == "" ||
+			(principal.Type != EmployeePrincipal &&
+				(principal.Type != CompanyUserPrincipal ||
+					(principal.Role != "company_admin" && principal.Role != "company_manager"))) {
+			c.AbortWithStatusJSON(http.StatusForbidden, gin.H{
+				"error":   "pharmacy_mutation_account_required",
+				"message": "حساب مدير أو موظف صيدلية نشط مطلوب لتنفيذ هذه العملية",
+			})
+			return
+		}
+		c.Next()
+	}
+}
+
 // CSRF protects cookie-authenticated state-changing requests with a
 // double-submit token. GET, HEAD and OPTIONS remain safe without the header.
 func CSRF(realm AuthRealm) gin.HandlerFunc {

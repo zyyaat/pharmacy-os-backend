@@ -30,13 +30,14 @@ var (
 )
 
 // StockAdjustmentInput describes one atomic inventory adjustment.
-// PharmacyID, BranchID, and EmployeeID are always derived from the
+// PharmacyID, BranchID, and actor IDs are always derived from the
 // authenticated principal by the handler; they are never accepted from JSON.
 type StockAdjustmentInput struct {
 	BatchID        string
 	PharmacyID     string
 	BranchID       string
 	EmployeeID     string
+	CompanyUserID  string
 	Delta          float64
 	IdempotencyKey string
 	Reason         string
@@ -74,11 +75,16 @@ func (r *StockMovementRepository) AdjustBatchStock(ctx context.Context, input St
 	}
 	defer func() { _ = tx.Rollback(ctx) }()
 
-	// Serialize reuse of the same key by the same employee, even when
+	actorID := input.EmployeeID
+	if actorID == "" {
+		actorID = input.CompanyUserID
+	}
+
+	// Serialize reuse of the same key by the same actor, even when
 	// two requests target different batches.
 	if _, err := tx.Exec(ctx,
 		`SELECT pg_advisory_xact_lock(hashtextextended($1, 0))`,
-		input.EmployeeID+":"+input.IdempotencyKey,
+		actorID+":"+input.IdempotencyKey,
 	); err != nil {
 		return nil, fmt.Errorf("lock idempotency key: %w", err)
 	}
@@ -88,7 +94,7 @@ func (r *StockMovementRepository) AdjustBatchStock(ctx context.Context, input St
 	if _, err := tx.Exec(ctx, `
                 SELECT set_config('app.current_pharmacy_id', $1, true),
                        set_config('app.current_user_id', $2, true)
-        `, input.PharmacyID, input.EmployeeID); err != nil {
+        `, input.PharmacyID, actorID); err != nil {
 		return nil, fmt.Errorf("set inventory tenant context: %w", err)
 	}
 
@@ -137,9 +143,13 @@ func (r *StockMovementRepository) AdjustBatchStock(ctx context.Context, input St
                        quantity::float8, quantity_before::float8,
                        quantity_after::float8, created_at
                 FROM stock_movements
-                WHERE created_by = $1 AND idempotency_key = $2
+                WHERE idempotency_key = $1
+                  AND (
+                    ($2 <> '' AND created_by = NULLIF($2, '')::uuid)
+                    OR ($3 <> '' AND created_by_company_user_id = NULLIF($3, '')::uuid)
+                  )
                 FOR UPDATE
-        `, input.EmployeeID, input.IdempotencyKey).Scan(
+        `, input.IdempotencyKey, input.EmployeeID, input.CompanyUserID).Scan(
 		&existing.MovementID, &existing.BatchID, &existing.Unit,
 		&existingDelta, &existingQuantityBefore,
 		&existingQuantityAfter, &existing.CreatedAt,
@@ -168,16 +178,16 @@ func (r *StockMovementRepository) AdjustBatchStock(ctx context.Context, input St
 	err = tx.QueryRow(ctx, `
                 INSERT INTO stock_movements (
                         batch_id, movement_type, quantity, unit,
-                        quantity_before, quantity_after, created_by,
+                        quantity_before, quantity_after, created_by, created_by_company_user_id,
                         reason, ip_address, user_agent, idempotency_key
                 ) VALUES (
                         $1, 'adjustment', $2, $3,
-                        $4, $5, $6, NULLIF($7, ''), NULLIF($8, '')::inet,
-                        NULLIF($9, ''), $10
+                        $4, $5, NULLIF($6, '')::uuid, NULLIF($7, '')::uuid,
+                        NULLIF($8, ''), NULLIF($9, '')::inet, NULLIF($10, ''), $11
                 )
                 RETURNING id::text, created_at
         `, input.BatchID, input.Delta, unit, currentQuantity, newQuantity,
-		input.EmployeeID, input.Reason, input.IPAddress,
+		input.EmployeeID, input.CompanyUserID, input.Reason, input.IPAddress,
 		input.UserAgent, input.IdempotencyKey).Scan(&movementID, &createdAt)
 	if err != nil {
 		return nil, fmt.Errorf("insert stock movement: %w", err)
@@ -207,8 +217,8 @@ func validateStockAdjustmentInput(input StockAdjustmentInput) error {
 		return fmt.Errorf("%w: batch id is required", ErrInvalidStockAdjustment)
 	case strings.TrimSpace(input.PharmacyID) == "":
 		return fmt.Errorf("%w: pharmacy id is required", ErrInvalidStockAdjustment)
-	case strings.TrimSpace(input.EmployeeID) == "":
-		return fmt.Errorf("%w: employee id is required", ErrInvalidStockAdjustment)
+	case strings.TrimSpace(input.EmployeeID) == "" && strings.TrimSpace(input.CompanyUserID) == "":
+		return fmt.Errorf("%w: an actor id is required", ErrInvalidStockAdjustment)
 	case input.Delta == 0 || math.IsNaN(input.Delta) || math.IsInf(input.Delta, 0):
 		return fmt.Errorf("%w: delta must be a finite non-zero number", ErrInvalidStockAdjustment)
 	case math.Abs(input.Delta) > 1000000000:

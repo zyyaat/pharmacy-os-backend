@@ -183,10 +183,13 @@ type adjustInventoryRequest struct {
 // will get separate contracts so their business rules cannot be conflated.
 func (h *Handler) AdjustPharmacyInventory(c *gin.Context) {
 	principal, ok := auth.PrincipalFromContext(c)
-	if !ok || principal.Type != auth.EmployeePrincipal || principal.PharmacyID == "" {
+	if !ok || principal.PharmacyID == "" ||
+		(principal.Type != auth.EmployeePrincipal &&
+			(principal.Type != auth.CompanyUserPrincipal ||
+				(principal.Role != "company_admin" && principal.Role != "company_manager"))) {
 		c.JSON(http.StatusForbidden, gin.H{
-			"error":   "employee_pharmacy_account_required",
-			"message": "An employee pharmacy account is required for inventory adjustments",
+			"error":   "pharmacy_mutation_account_required",
+			"message": "A pharmacy manager or employee account is required for inventory adjustments",
 		})
 		return
 	}
@@ -211,8 +214,10 @@ func (h *Handler) AdjustPharmacyInventory(c *gin.Context) {
 		return
 	}
 
-	var hasPermission bool
-	err := h.db.QueryRow(c.Request.Context(), `
+	hasPermission := principal.Type == auth.CompanyUserPrincipal
+	err := error(nil)
+	if principal.Type == auth.EmployeePrincipal {
+		err = h.db.QueryRow(c.Request.Context(), `
 		SELECT EXISTS (
 			SELECT 1
 			FROM employee_permissions ep
@@ -222,7 +227,8 @@ func (h *Handler) AdjustPharmacyInventory(c *gin.Context) {
 			  AND ep.is_active = true
 			  AND ep.revoked_at IS NULL
 		)
-	`, principal.ID).Scan(&hasPermission)
+		`, principal.ID).Scan(&hasPermission)
+	}
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
 			"error":   "permission_check_failed",
@@ -243,8 +249,9 @@ func (h *Handler) AdjustPharmacyInventory(c *gin.Context) {
 		c.Request.Context(),
 		repository.StockAdjustmentInput{
 			BatchID: idFromParam(c, "batch_id"), PharmacyID: principal.PharmacyID,
-			BranchID: principal.BranchID, EmployeeID: principal.ID,
-			Delta: request.Delta, IdempotencyKey: idempotencyKey,
+			BranchID: principal.BranchID, EmployeeID: actorEmployeeID(principal),
+			CompanyUserID: actorCompanyUserID(principal),
+			Delta:         request.Delta, IdempotencyKey: idempotencyKey,
 			Reason:    strings.TrimSpace(request.Reason),
 			IPAddress: c.ClientIP(), UserAgent: c.GetHeader("User-Agent"),
 		},
@@ -283,6 +290,20 @@ func (h *Handler) AdjustPharmacyInventory(c *gin.Context) {
 			"replayed": result.Replayed,
 		},
 	})
+}
+
+func actorEmployeeID(principal *auth.Principal) string {
+	if principal != nil && principal.Type == auth.EmployeePrincipal {
+		return principal.ID
+	}
+	return ""
+}
+
+func actorCompanyUserID(principal *auth.Principal) string {
+	if principal != nil && principal.Type == auth.CompanyUserPrincipal {
+		return principal.ID
+	}
+	return ""
 }
 
 func idFromParam(c *gin.Context, name string) string {

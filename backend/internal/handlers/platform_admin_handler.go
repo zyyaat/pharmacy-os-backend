@@ -94,6 +94,55 @@ func (h *Handler) GetPlatformAdminStats(c *gin.Context) {
 	})
 }
 
+// GetPlatformSettings returns settings that apply to newly provisioned
+// companies. This endpoint is intentionally restricted to Super Admins.
+func (h *Handler) GetPlatformSettings(c *gin.Context) {
+	var defaultTrialDays int
+	err := h.db.QueryRow(c.Request.Context(), `
+		SELECT COALESCE((setting_value->>'default_trial_days')::int, 30)
+		FROM platform_settings
+		WHERE setting_key = 'trial'
+	`).Scan(&defaultTrialDays)
+	if err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "platform_settings_query_failed", "message": "Could not load platform settings",
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": gin.H{"default_trial_days": defaultTrialDays}})
+}
+
+func (h *Handler) UpdatePlatformSettings(c *gin.Context) {
+	var request struct {
+		DefaultTrialDays int `json:"default_trial_days"`
+	}
+	if err := c.ShouldBindJSON(&request); err != nil || request.DefaultTrialDays < 1 || request.DefaultTrialDays > 3650 {
+		c.JSON(http.StatusBadRequest, gin.H{
+			"error": "invalid_trial_days", "message": "مدة التجربة يجب أن تكون بين يوم واحد و3650 يومًا",
+		})
+		return
+	}
+	principal, ok := auth.PrincipalFromContext(c)
+	if !ok || principal.ID == "" {
+		c.JSON(http.StatusForbidden, gin.H{"error": "super_admin_required"})
+		return
+	}
+	if _, err := h.db.Exec(c.Request.Context(), `
+		INSERT INTO platform_settings (setting_key, setting_value, updated_by, updated_at)
+		VALUES ('trial', jsonb_build_object('default_trial_days', $1), $2, NOW())
+		ON CONFLICT (setting_key) DO UPDATE SET
+			setting_value = EXCLUDED.setting_value,
+			updated_by = EXCLUDED.updated_by,
+			updated_at = NOW()
+	`, request.DefaultTrialDays, principal.ID); err != nil {
+		c.JSON(http.StatusInternalServerError, gin.H{
+			"error": "platform_settings_update_failed", "message": "Could not save platform settings",
+		})
+		return
+	}
+	c.JSON(http.StatusOK, gin.H{"data": gin.H{"default_trial_days": request.DefaultTrialDays}})
+}
+
 func (h *Handler) platformActivity(c *gin.Context) ([]dashboardActivity, error) {
 	rows, err := h.db.Query(c.Request.Context(), `
 		SELECT

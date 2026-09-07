@@ -57,6 +57,57 @@ func TestRequirePharmacyPrincipalAllowsCompanyUsersWithPharmacy(t *testing.T) {
 	require.Equal(t, http.StatusNoContent, response.Code)
 }
 
+func TestRequirePharmacyMutationPrincipalAllowsCompanyAdmin(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.Use(func(c *gin.Context) {
+		setPrincipal(c, &Principal{
+			Type:       CompanyUserPrincipal,
+			ID:         "company-user-id",
+			CompanyID:  "company-id",
+			PharmacyID: "pharmacy-id",
+			Role:       "company_admin",
+		})
+		c.Next()
+	})
+	router.Use(RequirePharmacyMutationPrincipal())
+	router.POST("/pharmacy", func(c *gin.Context) {
+		c.Status(http.StatusNoContent)
+	})
+
+	request := httptest.NewRequest(http.MethodPost, "/pharmacy", nil)
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+
+	require.Equal(t, http.StatusNoContent, response.Code)
+}
+
+func TestRequirePharmacyMutationPrincipalRejectsCompanyViewer(t *testing.T) {
+	gin.SetMode(gin.TestMode)
+	router := gin.New()
+	router.Use(func(c *gin.Context) {
+		setPrincipal(c, &Principal{
+			Type:       CompanyUserPrincipal,
+			ID:         "company-user-id",
+			CompanyID:  "company-id",
+			PharmacyID: "pharmacy-id",
+			Role:       "company_viewer",
+		})
+		c.Next()
+	})
+	router.Use(RequirePharmacyMutationPrincipal())
+	router.POST("/pharmacy", func(c *gin.Context) {
+		c.Status(http.StatusNoContent)
+	})
+
+	request := httptest.NewRequest(http.MethodPost, "/pharmacy", nil)
+	response := httptest.NewRecorder()
+	router.ServeHTTP(response, request)
+
+	require.Equal(t, http.StatusForbidden, response.Code)
+	require.Contains(t, response.Body.String(), "pharmacy_mutation_account_required")
+}
+
 func TestRequirePharmacyPrincipalRejectsSuperAdminWithPharmacy(t *testing.T) {
 	gin.SetMode(gin.TestMode)
 	router := gin.New()
