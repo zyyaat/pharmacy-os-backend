@@ -161,7 +161,7 @@ func (s *Phase1FoundationTestSuite) Test_01_CrossTenantIsolation_PharmacyACannot
 	defer tx.Rollback(ctx)
 
 	// Set tenant context to Pharmacy A
-	_, err = tx.Exec(ctx, "SET LOCAL app.current_pharmacy_id = $1", s.pharmacyAID)
+	_, err = tx.Exec(ctx, "SELECT set_config('app.current_pharmacy_id', $1, true)", s.pharmacyAID)
 	require.NoError(t, err)
 
 	// Try to query Pharmacy B's products (should return 0 due to RLS)
@@ -227,8 +227,12 @@ func (s *Phase1FoundationTestSuite) Test_03_RLSWithConnectionPooling_NoContextLe
 	// First transaction: Tenant A
 	tx1, err := s.pool.Begin(ctx)
 	require.NoError(t, err)
+	// Task 149 — a require that fires before Commit/Runaway leaves the tx's
+	// connection checked out forever (puddle.Close then hangs the suite).
+	// Rollback after Commit is a deliberate no-op.
+	defer tx1.Rollback(ctx)
 
-	_, err = tx1.Exec(ctx, "SET LOCAL app.current_pharmacy_id = $1", s.pharmacyAID)
+	_, err = tx1.Exec(ctx, "SELECT set_config('app.current_pharmacy_id', $1, true)", s.pharmacyAID)
 	require.NoError(t, err)
 
 	// Verify context is set
@@ -244,8 +248,9 @@ func (s *Phase1FoundationTestSuite) Test_03_RLSWithConnectionPooling_NoContextLe
 	// Second transaction: Tenant B (might reuse same connection from pool)
 	tx2, err := s.pool.Begin(ctx)
 	require.NoError(t, err)
+	defer tx2.Rollback(ctx)
 
-	_, err = tx2.Exec(ctx, "SET LOCAL app.current_pharmacy_id = $1", s.pharmacyBID)
+	_, err = tx2.Exec(ctx, "SELECT set_config('app.current_pharmacy_id', $1, true)", s.pharmacyBID)
 	require.NoError(t, err)
 
 	// Verify context is NOW Tenant B (not leaked from previous transaction)
@@ -322,7 +327,11 @@ func (s *Phase1FoundationTestSuite) Test_07_StockMovementCalculation_QuantityFro
 	t := s.T()
 	ctx := context.Background()
 
-	// Initial batch quantity: 100 (set during setup)
+	// The invariant under test: batches.quantity == SUM(stock_movements
+	// .quantity) — migration 2's column contract. A fresh chain applies no
+	// auto-movement trigger on batch creation, so the opening 100 units
+	// must enter the ledger explicitly, exactly as a real stock intake does.
+	s.createStockMovement(ctx, s.batchAID, "purchase", 100, "tablet", s.employeeAID, "Initial stock intake")
 
 	// Add movements:
 	// 1. Sale: -10 units
@@ -458,8 +467,8 @@ func (s *Phase1FoundationTestSuite) createTestBranch(ctx context.Context, pharma
 func (s *Phase1FoundationTestSuite) createTestEmployee(ctx context.Context, accountID, pharmacyID, branchID, email, firstName, lastName string) string {
 	var id string
 	err := s.pool.QueryRow(ctx, `
-		INSERT INTO employees (account_id, pharmacy_id, branch_id, email, first_name, last_name, status) 
-		VALUES ($1, $2, $3, $4, $5, $6, 'active')
+		INSERT INTO employees (account_id, pharmacy_id, branch_id, email, first_name, last_name, status, permissions_initialized) 
+		VALUES ($1, $2, $3, $4, $5, $6, 'active', TRUE)
 		RETURNING id
 	`, accountID, pharmacyID, branchID, email, firstName, lastName).Scan(&id)
 	require.NoError(s.T(), err, "Failed to create test employee")
@@ -541,7 +550,7 @@ func (s *Phase1FoundationTestSuite) grantPermissionToEmployee(ctx context.Contex
 func (s *Phase1FoundationTestSuite) revokePermissionFromEmployee(ctx context.Context, employeeID, permissionKey, revokedBy string) {
 	_, err := s.pool.Exec(ctx, `
 		UPDATE employee_permissions 
-		SET revoked_at = NOW(), revoked_by = $3, is_active = false
+		SET revoked_at = NOW(), revoked_by = $3
 		WHERE employee_id = $1 
 		  AND permission_id = (SELECT id FROM permissions WHERE key = $2)
 		  AND is_active = true

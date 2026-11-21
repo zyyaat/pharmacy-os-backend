@@ -57,6 +57,10 @@ See [`.env.example`](.env.example) for all available environment variables:
 | `AUTH_COOKIE_DOMAIN` | Optional cookie domain | - |
 | `BREVO_API_KEY` | Brevo API key for verification code and password reset email | - |
 | `MAIL_FROM_EMAIL` | Verified Brevo sender email | - |
+| `MAIL_SMTP_HOST` | Optional: SMTP relay host — moves ALL mail off Brevo onto any provider (Task 133) | - |
+| `MAIL_SMTP_PORT` | `587` (STARTTLS) or `465` (implicit TLS) | `587` |
+| `MAIL_SMTP_USERNAME` / `MAIL_SMTP_PASSWORD` | SMTP credentials (Gmail: App Password) | - |
+| `MAIL_TRANSPORT` | Optional override: `smtp` or `brevo` | auto (SMTP when host set) |
 | `MAIL_FROM_NAME` | Sender name | `Pharmacy OS` |
 | `PUBLIC_APP_URL` | Public frontend URL used in email links | - |
 | `RIVER_DSN` | River Queue DSN | Same as DATABASE_URL |
@@ -191,7 +195,7 @@ Authorization: Bearer <your-jwt-token>
 2. Set environment variables
 3. Deploy (auto-detects Go project)
 
-### Railway / Render
+### Railway
 1. Import from GitHub
 2. Add environment variables
 3. Deploy

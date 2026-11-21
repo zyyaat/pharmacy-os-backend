@@ -159,8 +159,9 @@ func (s *Phase2HoldingCompanyTestSuite) Test_CompanyCRUD() {
 		assert.NotEmpty(t, id)
 		assert.Equal(t, req.Name, name)
 		assert.Equal(t, req.Email, email)
-		assert.Equal(t, models.CompanyPlanProfessional, plan)
-		assert.Equal(t, models.CompanyStatusTrial, status)
+		// The columns scan back as plain strings — compare within one type.
+		assert.Equal(t, models.CompanyPlanProfessional, models.CompanyPlan(plan))
+		assert.Equal(t, models.CompanyStatusTrial, models.CompanyStatus(status))
 		assert.False(t, createdAt.IsZero())
 
 		// Cleanup
@@ -456,24 +457,24 @@ func (s *Phase2HoldingCompanyTestSuite) Test_CompanyUserPermissions() {
 		`, s.userCID, s.userAID)
 
 		// Now revoke it
+		// is_active is GENERATED ALWAYS AS (revoked_at IS NULL) — writing it
+		// directly is SQLSTATE 428C9; the revocation lands on revoked_at and
+		// the derived column flips on its own.
 		const revokeQuery = `
 			UPDATE company_user_permissions SET
 				revoked_by = $2,
 				revoked_at = NOW(),
-				revocation_reason = 'Test revocation',
-				is_active = false
+				revocation_reason = 'Test revocation'
 			WHERE company_user_id = $1
 			  AND permission_id = (SELECT id FROM permissions WHERE key = 'accounts.view')
 			  AND is_active = true
-			RETURNING is_active, revoked_at
+			RETURNING revoked_at
 		`
 
-		var isActive bool
 		var revokedAt *time.Time
 
-		err := s.pool.QueryRow(ctx, revokeQuery, s.userCID, s.userAID).Scan(&isActive, &revokedAt)
+		err := s.pool.QueryRow(ctx, revokeQuery, s.userCID, s.userAID).Scan(&revokedAt)
 		require.NoError(t, err)
-		assert.False(t, isActive)
 		assert.NotNil(t, revokedAt)
 
 		// Verify permission is no longer active
@@ -506,10 +507,13 @@ func (s *Phase2HoldingCompanyTestSuite) Test_CompanyUserPermissions() {
 		require.NoError(t, err)
 		defer rows.Close()
 
-		var permissions []struct {
+		// The subtest's own contract (comment below): an empty result is a
+		// valid list — the previous subtest may legitimately have revoked
+		// every grant — so the slice starts non-nil.
+		permissions := []struct {
 			Key  string
 			Name string
-		}
+		}{}
 
 		for rows.Next() {
 			var p struct {
@@ -698,7 +702,7 @@ func (s *Phase2HoldingCompanyTestSuite) Test_CompanyTenantContext() {
 		defer tx.Rollback(ctx)
 
 		// Execute SET LOCAL inside transaction
-		_, err = tx.Exec(ctx, "SET LOCAL app.current_company_id = $1", s.companyAID)
+		_, err = tx.Exec(ctx, "SELECT set_config('app.current_company_id', $1, true)", s.companyAID)
 		require.NoError(t, err)
 
 		// Verify it's set within transaction
@@ -713,7 +717,7 @@ func (s *Phase2HoldingCompanyTestSuite) Test_CompanyTenantContext() {
 		tx1, err := s.pool.Begin(ctx)
 		require.NoError(t, err)
 
-		tx1.Exec(ctx, "SET LOCAL app.current_company_id = $1", s.companyAID)
+		tx1.Exec(ctx, "SELECT set_config('app.current_company_id', $1, true)", s.companyAID)
 		tx1.Commit(ctx)
 
 		// Now start new transaction - should NOT have the old value
@@ -739,13 +743,13 @@ func (s *Phase2HoldingCompanyTestSuite) Test_CompanyTenantContext() {
 		defer tx.Rollback(ctx)
 
 		// Set multiple variables
-		_, err = tx.Exec(ctx, "SET LOCAL app.current_company_id = $1", s.companyAID)
+		_, err = tx.Exec(ctx, "SELECT set_config('app.current_company_id', $1, true)", s.companyAID)
 		require.NoError(t, err)
 
-		_, err = tx.Exec(ctx, "SET LOCAL app.current_user_id = $1", s.userAID)
+		_, err = tx.Exec(ctx, "SELECT set_config('app.current_user_id', $1, true)", s.userAID)
 		require.NoError(t, err)
 
-		_, err = tx.Exec(ctx, "SET LOCAL app.is_super_admin = $1", false)
+		_, err = tx.Exec(ctx, "SELECT set_config('app.is_super_admin', $1, true)", "false")
 		require.NoError(t, err)
 
 		// Verify all are set
@@ -772,8 +776,8 @@ func (s *Phase2HoldingCompanyTestSuite) Test_CompanyTenantContext() {
 		defer tx.Rollback(ctx)
 
 		// Set company context to company A
-		tx.Exec(ctx, "SET LOCAL app.current_company_id = $1", s.companyAID)
-		tx.Exec(ctx, "SET LOCAL app.is_super_admin = $1", false)
+		tx.Exec(ctx, "SELECT set_config('app.current_company_id', $1, true)", s.companyAID)
+		tx.Exec(ctx, "SELECT set_config('app.is_super_admin', $1, true)", "false")
 
 		// Query should respect RLS (if policies are properly configured)
 		// For now, just verify we can query without errors

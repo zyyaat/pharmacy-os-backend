@@ -9,6 +9,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"github.com/pharmacy-os/backend/internal/apierr"
 	"github.com/pharmacy-os/backend/internal/middleware"
 	"github.com/pharmacy-os/backend/internal/models"
 	"github.com/pharmacy-os/backend/internal/repository"
@@ -160,11 +161,7 @@ func (h *CompanyHandler) UpdateCompany(c *gin.Context) {
 
 	var req models.CompanyUpdateRequest
 	if err := c.ShouldBindJSON(&req); err != nil {
-		c.JSON(http.StatusBadRequest, gin.H{
-			"error":   "validation_error",
-			"message": err.Error(),
-			"code":    "INVALID_REQUEST",
-		})
+		apierr.LogAndRespond(c, "validation_error", err)
 		return
 	}
 
@@ -250,6 +247,14 @@ func (h *CompanyHandler) DeleteCompany(c *gin.Context) {
 		return
 	}
 
+	// Task 164: the platform shell company is infrastructure — its own
+	// super admin could otherwise soft-delete it through this self-service
+	// route (the migration-45 trigger would refuse it as a raw 500; this is
+	// the clean 403 in front of that backstop).
+	if rejectPlatformCompanyMutationViaContext(c, id) {
+		return
+	}
+
 	err := h.companyRepo.SoftDelete(c.Request.Context(), id)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{
@@ -271,6 +276,13 @@ func (h *CompanyHandler) UpdateCompanyStatus(c *gin.Context) {
 	id := c.Param("id")
 	if !companyAccessAllowed(c, id) {
 		writeCompanyForbidden(c)
+		return
+	}
+
+	// Task 164: same freeze as DeleteCompany — a status flip on the platform
+	// shell (suspended/cancelled) would lock the operator out of his own
+	// tenant; refused with a clean 403 ahead of the migration-45 trigger.
+	if rejectPlatformCompanyMutationViaContext(c, id) {
 		return
 	}
 
