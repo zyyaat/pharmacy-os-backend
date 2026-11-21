@@ -110,6 +110,132 @@ func (h *Handler) GetPharmacyDashboardActivity(c *gin.Context) {
 	c.JSON(http.StatusOK, gin.H{"data": activities})
 }
 
+// Task 123 — استعلام المخزون المتجرَوْن فقط (الافتراضي): تجميع LATERAL واحد
+// بالفهرس الغلاف idx_stock_movements_batch_qty بدل دالة الفيو × 3 لكل صف.
+const pharmacyInventoryStockedQuery = `
+	SELECT ib.id, pp.id, gp.id, gp.name,
+	       gp.generic_name, gp.brand_name, gp.barcode,
+	       gp.dosage_form::text, gp.strength,
+	       ib.batch_number, ib.unit::text,
+	       COALESCE(sm.qty, 0), ib.cost_per_unit, ib.total_cost,
+	       ib.expiry_date, ib.days_until_expiry,
+	       pp.selling_price, pp.partial_selling_price,
+	       COALESCE(pp.packaging_type::text, ''), COALESCE(pp.units_per_box, 0),
+	       pp.min_stock_level, b.name,
+	       CASE
+	           WHEN COALESCE(sm.qty, 0) <= pp.min_stock_level THEN 'low_stock'
+	           WHEN ib.expiry_date IS NOT NULL
+	               AND ib.expiry_date <= CURRENT_DATE + INTERVAL '90 days' THEN 'expiring_soon'
+	           WHEN ib.is_quarantined THEN 'quarantined'
+	           ELSE 'normal'
+	       END,
+	       COUNT(*) OVER()
+	FROM inventory_batches ib
+	JOIN pharmacy_products pp ON ib.pharmacy_product_id = pp.id
+	JOIN global_products gp ON pp.global_product_id = gp.id
+	LEFT JOIN branches b ON ib.branch_id = b.id
+	LEFT JOIN LATERAL (
+		SELECT SUM(s.quantity)::numeric(12,4) AS qty
+		FROM stock_movements s
+		WHERE s.batch_id = ib.id
+	) sm ON true
+	WHERE pp.pharmacy_id = $1
+	  AND (ib.quantity > 0 OR COALESCE(sm.qty, 0) > 0)
+	  AND ($3::text = '' OR gp.name ILIKE '%' || $3 || '%'
+	       OR COALESCE(gp.generic_name, '') ILIKE '%' || $3 || '%'
+	       OR COALESCE(gp.barcode, '') ILIKE '%' || $3 || '%'
+	       OR COALESCE(pp.internal_sku, '') ILIKE '%' || $3 || '%')
+	ORDER BY gp.name, ib.expiry_date NULLS LAST
+	LIMIT $2 OFFSET $4
+`
+
+// Task 123 — وضع include=unstocked: تنفيذ العقد الموثق في طرفي العميلين
+// (api_level 121 بتعليق getInventory في الويب وincludeUnstocked دائمًا في
+// inventoryPage بالموبايل). قبل هذا كانت الصفحة ترجع «لا توجد أصناف مطابقة»
+// (بلاغ المالك بعد إصلاح الأداء) لأي صيدلية أصنافها مستوردة بلا تشغيلة أو
+// بلا رصيد — شرط الفيو (quantity > 0 أو مجموع حركاته > 0) يستبعد كل شيء.
+// الصف الاصطناعي لكل منتج بلا رصيد متجرَوْن: batch_id null وstatus
+// 'no_stock' وكمية 0 وبقية حقول المنتج من pp/gp — كما يفترض عرض الويب
+// (isUnstocked = batch_id == null + rowKey pp-<id> + شارة no_stock وزر
+// الرصيد الافتتاحي) والموبايل (sOf/iOf تتقبل null بأمان). الترقيم والبحث
+// والمجموع الكلي يغطيان الاتحاد كاملًا حتى يعمل التمرير اللانهائي صحيحًا.
+const pharmacyInventoryUnstockedQuery = `
+	WITH stocked AS (
+		SELECT ib.id AS batch_id, pp.id AS pharmacy_product_id, gp.id AS global_product_id,
+		       gp.name AS product_name, gp.generic_name, gp.brand_name, gp.barcode,
+		       gp.dosage_form::text AS dosage_form, gp.strength,
+		       ib.batch_number, ib.unit::text AS unit,
+		       COALESCE(sm.qty, 0) AS quantity,
+		       ib.cost_per_unit, ib.total_cost,
+		       ib.expiry_date, ib.days_until_expiry,
+		       pp.selling_price, pp.partial_selling_price,
+		       COALESCE(pp.packaging_type::text, '') AS packaging_type,
+		       COALESCE(pp.units_per_box, 0) AS units_per_box,
+		       pp.min_stock_level, b.name AS branch_name,
+		       CASE
+		           WHEN COALESCE(sm.qty, 0) <= pp.min_stock_level THEN 'low_stock'
+		           WHEN ib.expiry_date IS NOT NULL
+		               AND ib.expiry_date <= CURRENT_DATE + INTERVAL '90 days' THEN 'expiring_soon'
+		           WHEN ib.is_quarantined THEN 'quarantined'
+		           ELSE 'normal'
+		       END AS status
+		FROM inventory_batches ib
+		JOIN pharmacy_products pp ON ib.pharmacy_product_id = pp.id
+		JOIN global_products gp ON pp.global_product_id = gp.id
+		LEFT JOIN branches b ON ib.branch_id = b.id
+		LEFT JOIN LATERAL (
+			SELECT SUM(s.quantity)::numeric(12,4) AS qty
+			FROM stock_movements s
+			WHERE s.batch_id = ib.id
+		) sm ON true
+		WHERE pp.pharmacy_id = $1
+		  AND (ib.quantity > 0 OR COALESCE(sm.qty, 0) > 0)
+		  AND ($3::text = '' OR gp.name ILIKE '%' || $3 || '%'
+		       OR COALESCE(gp.generic_name, '') ILIKE '%' || $3 || '%'
+		       OR COALESCE(gp.barcode, '') ILIKE '%' || $3 || '%'
+		       OR COALESCE(pp.internal_sku, '') ILIKE '%' || $3 || '%')
+	),
+	stocked_products AS (
+		SELECT DISTINCT pharmacy_product_id FROM stocked
+	),
+	synthetic AS (
+		SELECT NULL::uuid AS batch_id, pp.id AS pharmacy_product_id, gp.id AS global_product_id,
+		       gp.name AS product_name, gp.generic_name, gp.brand_name, gp.barcode,
+		       gp.dosage_form::text AS dosage_form, gp.strength,
+		       NULL::text AS batch_number, NULL::text AS unit,
+		       0::numeric(12,4) AS quantity,
+		       0::numeric AS cost_per_unit, 0::numeric AS total_cost,
+		       NULL::date AS expiry_date, NULL::int AS days_until_expiry,
+		       pp.selling_price, pp.partial_selling_price,
+		       COALESCE(pp.packaging_type::text, '') AS packaging_type,
+		       COALESCE(pp.units_per_box, 0) AS units_per_box,
+		       pp.min_stock_level, NULL::text AS branch_name,
+		       'no_stock'::text AS status
+		FROM pharmacy_products pp
+		JOIN global_products gp ON pp.global_product_id = gp.id
+		WHERE pp.pharmacy_id = $1
+		  AND NOT EXISTS (SELECT 1 FROM stocked_products sp WHERE sp.pharmacy_product_id = pp.id)
+		  AND ($3::text = '' OR gp.name ILIKE '%' || $3 || '%'
+		       OR COALESCE(gp.generic_name, '') ILIKE '%' || $3 || '%'
+		       OR COALESCE(gp.barcode, '') ILIKE '%' || $3 || '%'
+		       OR COALESCE(pp.internal_sku, '') ILIKE '%' || $3 || '%')
+	),
+	combined AS (
+		SELECT * FROM stocked
+		UNION ALL
+		SELECT * FROM synthetic
+	)
+	SELECT batch_id, pharmacy_product_id, global_product_id, product_name,
+	       generic_name, brand_name, barcode, dosage_form, strength,
+	       batch_number, unit, quantity, cost_per_unit, total_cost,
+	       expiry_date, days_until_expiry, selling_price, partial_selling_price,
+	       packaging_type, units_per_box, min_stock_level, branch_name, status,
+	       COUNT(*) OVER()
+	FROM combined
+	ORDER BY product_name, expiry_date NULLS LAST
+	LIMIT $2 OFFSET $4
+`
+
 func (h *Handler) GetPharmacyInventory(c *gin.Context) {
 	pharmacyID, ok := pharmacyScope(c)
 	if !ok {
@@ -137,42 +263,12 @@ func (h *Handler) GetPharmacyInventory(c *gin.Context) {
 	}
 	search := strings.TrimSpace(c.Query("search"))
 
-	const query = `
-		SELECT ib.id, pp.id, gp.id, gp.name,
-		       gp.generic_name, gp.brand_name, gp.barcode,
-		       gp.dosage_form::text, gp.strength,
-		       ib.batch_number, ib.unit::text,
-		       COALESCE(sm.qty, 0), ib.cost_per_unit, ib.total_cost,
-		       ib.expiry_date, ib.days_until_expiry,
-		       pp.selling_price, pp.partial_selling_price,
-		       pp.packaging_type::text, pp.units_per_box,
-		       pp.min_stock_level, b.name,
-		       CASE
-		           WHEN COALESCE(sm.qty, 0) <= pp.min_stock_level THEN 'low_stock'
-		           WHEN ib.expiry_date IS NOT NULL
-		               AND ib.expiry_date <= CURRENT_DATE + INTERVAL '90 days' THEN 'expiring_soon'
-		           WHEN ib.is_quarantined THEN 'quarantined'
-		           ELSE 'normal'
-		       END,
-		       COUNT(*) OVER()
-		FROM inventory_batches ib
-		JOIN pharmacy_products pp ON ib.pharmacy_product_id = pp.id
-		JOIN global_products gp ON pp.global_product_id = gp.id
-		LEFT JOIN branches b ON ib.branch_id = b.id
-		LEFT JOIN LATERAL (
-			SELECT SUM(s.quantity)::numeric(12,4) AS qty
-			FROM stock_movements s
-			WHERE s.batch_id = ib.id
-		) sm ON true
-		WHERE pp.pharmacy_id = $1
-		  AND (ib.quantity > 0 OR COALESCE(sm.qty, 0) > 0)
-		  AND ($3::text = '' OR gp.name ILIKE '%' || $3 || '%'
-		       OR COALESCE(gp.generic_name, '') ILIKE '%' || $3 || '%'
-		       OR COALESCE(gp.barcode, '') ILIKE '%' || $3 || '%'
-		       OR COALESCE(pp.internal_sku, '') ILIKE '%' || $3 || '%')
-		ORDER BY gp.name, ib.expiry_date NULLS LAST
-		LIMIT $2 OFFSET $4
-	`
+	// Task 123 — include=unstocked يبدّل لاستعلام الاتحاد (صفوف no_stock
+	// الاصطناعية) — الافتراضي بلا include يبقى مطابقًا للسلوك القديم حرفيًا.
+	query := pharmacyInventoryStockedQuery
+	if strings.TrimSpace(c.Query("include")) == "unstocked" {
+		query = pharmacyInventoryUnstockedQuery
+	}
 	rows, err := h.db.Query(c.Request.Context(), query, pharmacyID, limit, search, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "inventory_query_failed", "message": "Could not load inventory"})
@@ -184,12 +280,15 @@ func (h *Handler) GetPharmacyInventory(c *gin.Context) {
 	total := 0
 	for rows.Next() {
 		var (
-			batchID, pharmacyProductID, globalProductID, name, dosageForm, batchNumber, unit, status string
-			genericName, brandName, barcode, strength, branchName, expiryDate, daysUntilExpiry       interface{}
-			quantity, costPerUnit, totalCost, sellingPrice, partialSellingPrice, minStockLevel       float64
-			packagingType                                                                            string
-			unitsPerBox                                                                              int
-			totalCount                                                                               int64
+			// batch_id/batch_number/unit مؤشرات: الصفوف الاصطناعية (no_stock)
+			// ترجع null — يُسلسل JSON إلى null كما يتوقع العميلان حرفيًا.
+			batchID, batchNumber, unit                                                        *string
+			pharmacyProductID, globalProductID, name, dosageForm, status                      string
+			genericName, brandName, barcode, strength, branchName, expiryDate, daysUntilExpiry interface{}
+			quantity, costPerUnit, totalCost, sellingPrice, partialSellingPrice, minStockLevel float64
+			packagingType                                                                      string
+			unitsPerBox                                                                        int
+			totalCount                                                                         int64
 		)
 		if err := rows.Scan(
 			&batchID, &pharmacyProductID, &globalProductID, &name,
