@@ -4,6 +4,7 @@ import (
 	"errors"
 	"math"
 	"net/http"
+	"strconv"
 	"strings"
 	"time"
 
@@ -115,18 +116,64 @@ func (h *Handler) GetPharmacyInventory(c *gin.Context) {
 		return
 	}
 
+	// Task 122 — إصلاح «جاري تحميل البيانات» الأبدي (الويب) و«تعدُر الاتصال»
+	// (الموبايل): الفيو current_inventory يستدعي calculate_batch_current_stock
+	// ثلاثًا لكل صف (الكمية + حالة status + شرط WHERE) وORDER BY يفرض تقييم
+	// الدالة على كل تشغيلات الصيدلية قبل LIMIT — استعلام واحد كان يولّد آلاف
+	// التجميعات الفرعية على stock_movements فتتجاوز مدة الرد مهلة الموبايل
+	// (40 ثانية) ويعلّق المتصفح بلا مهلة أصلًا.
+	// هنا: تجميع LATERAL واحد لكل صف بالفهرس الغلاف
+	// idx_stock_movements_batch_qty (batch_id, quantity) + COUNT(*) OVER()
+	// للمجموع الكلي + تنفيذ limit/offset/search التي كان الخادم يتلقاها من
+	// العميلين ويتجاهلها نهائيًا (عقد R-8 وapi_level 121 الموثق في طرفي
+	// العميلين). شكل الرد والأعمدة والأسماء كما هي حرفيًا — بلا كسر.
+	limit := 500
+	if value, err := strconv.Atoi(c.Query("limit")); err == nil && value > 0 && value <= 500 {
+		limit = value
+	}
+	offset := 0
+	if value, err := strconv.Atoi(c.Query("offset")); err == nil && value > 0 {
+		offset = value
+	}
+	search := strings.TrimSpace(c.Query("search"))
+
 	const query = `
-		SELECT batch_id, pharmacy_product_id, global_product_id, product_name,
-		       generic_name, brand_name, barcode, dosage_form, strength,
-		       batch_number, unit, quantity, cost_per_unit, total_cost,
-		       expiry_date, days_until_expiry, selling_price, partial_selling_price,
-		       packaging_type, units_per_box, min_stock_level, branch_name, status
-		FROM current_inventory
-		WHERE pharmacy_id = $1
-		ORDER BY product_name, expiry_date NULLS LAST
-		LIMIT 500
+		SELECT ib.id, pp.id, gp.id, gp.name,
+		       gp.generic_name, gp.brand_name, gp.barcode,
+		       gp.dosage_form::text, gp.strength,
+		       ib.batch_number, ib.unit::text,
+		       COALESCE(sm.qty, 0), ib.cost_per_unit, ib.total_cost,
+		       ib.expiry_date, ib.days_until_expiry,
+		       pp.selling_price, pp.partial_selling_price,
+		       pp.packaging_type::text, pp.units_per_box,
+		       pp.min_stock_level, b.name,
+		       CASE
+		           WHEN COALESCE(sm.qty, 0) <= pp.min_stock_level THEN 'low_stock'
+		           WHEN ib.expiry_date IS NOT NULL
+		               AND ib.expiry_date <= CURRENT_DATE + INTERVAL '90 days' THEN 'expiring_soon'
+		           WHEN ib.is_quarantined THEN 'quarantined'
+		           ELSE 'normal'
+		       END,
+		       COUNT(*) OVER()
+		FROM inventory_batches ib
+		JOIN pharmacy_products pp ON ib.pharmacy_product_id = pp.id
+		JOIN global_products gp ON pp.global_product_id = gp.id
+		LEFT JOIN branches b ON ib.branch_id = b.id
+		LEFT JOIN LATERAL (
+			SELECT SUM(s.quantity)::numeric(12,4) AS qty
+			FROM stock_movements s
+			WHERE s.batch_id = ib.id
+		) sm ON true
+		WHERE pp.pharmacy_id = $1
+		  AND (ib.quantity > 0 OR COALESCE(sm.qty, 0) > 0)
+		  AND ($3::text = '' OR gp.name ILIKE '%' || $3 || '%'
+		       OR COALESCE(gp.generic_name, '') ILIKE '%' || $3 || '%'
+		       OR COALESCE(gp.barcode, '') ILIKE '%' || $3 || '%'
+		       OR COALESCE(pp.internal_sku, '') ILIKE '%' || $3 || '%')
+		ORDER BY gp.name, ib.expiry_date NULLS LAST
+		LIMIT $2 OFFSET $4
 	`
-	rows, err := h.db.Query(c.Request.Context(), query, pharmacyID)
+	rows, err := h.db.Query(c.Request.Context(), query, pharmacyID, limit, search, offset)
 	if err != nil {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "inventory_query_failed", "message": "Could not load inventory"})
 		return
@@ -134,6 +181,7 @@ func (h *Handler) GetPharmacyInventory(c *gin.Context) {
 	defer rows.Close()
 
 	items := make([]map[string]interface{}, 0)
+	total := 0
 	for rows.Next() {
 		var (
 			batchID, pharmacyProductID, globalProductID, name, dosageForm, batchNumber, unit, status string
@@ -141,6 +189,7 @@ func (h *Handler) GetPharmacyInventory(c *gin.Context) {
 			quantity, costPerUnit, totalCost, sellingPrice, partialSellingPrice, minStockLevel       float64
 			packagingType                                                                            string
 			unitsPerBox                                                                              int
+			totalCount                                                                               int64
 		)
 		if err := rows.Scan(
 			&batchID, &pharmacyProductID, &globalProductID, &name,
@@ -149,10 +198,12 @@ func (h *Handler) GetPharmacyInventory(c *gin.Context) {
 			&expiryDate, &daysUntilExpiry, &sellingPrice, &partialSellingPrice,
 			&packagingType, &unitsPerBox, &minStockLevel,
 			&branchName, &status,
+			&totalCount,
 		); err != nil {
 			c.JSON(http.StatusInternalServerError, gin.H{"error": "inventory_query_failed", "message": "Could not read inventory"})
 			return
 		}
+		total = int(totalCount)
 		items = append(items, gin.H{
 			"batch_id": batchID, "pharmacy_product_id": pharmacyProductID,
 			"global_product_id": globalProductID, "product_name": name,
@@ -170,7 +221,7 @@ func (h *Handler) GetPharmacyInventory(c *gin.Context) {
 		c.JSON(http.StatusInternalServerError, gin.H{"error": "inventory_query_failed", "message": "Could not read inventory"})
 		return
 	}
-	c.JSON(http.StatusOK, gin.H{"data": items})
+	c.JSON(http.StatusOK, gin.H{"data": items, "total": total, "limit": limit, "offset": offset})
 }
 
 type adjustInventoryRequest struct {
